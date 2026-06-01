@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard — Academic Platform</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+
+<nav>
+    <div>
+        <a href="/dashboard">🏠 Home</a>
+        <a href="/students">👥 Students</a>
+        <a href="/attendance">📋 Attendance</a>
+        <a href="/assignments">📝 Assignments</a>
+    </div>
+    <div class="nav-right">
+        <span th:text="${username}"></span> |
+        <a href="/logout" style="color:#e74c3c">Logout</a>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="card">
+        <h1>Welcome back, <span th:text="${username}"></span>! 👋</h1>
+        <p style="color:#777">Role: <strong th:text="${role}"></strong></p>
+    </div>
+
+    <div class="dashboard-grid">
+        <a href="/students" class="dashboard-card">
+            <div class="icon">👥</div>
+            <h3>Students</h3>
+        </a>
+        <a href="/attendance" class="dashboard-card">
+            <div class="icon">📋</div>
+            <h3>Attendance</h3>
+        </a>
+        <a href="/assignments" class="dashboard-card">
+            <div class="icon">📝</div>
+            <h3>Assignments</h3>
+        </a>
+    </div>
+</div>
+</body>
+</html>

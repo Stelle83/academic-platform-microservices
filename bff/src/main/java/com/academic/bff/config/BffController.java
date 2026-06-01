@@ -2,6 +2,7 @@ package com.academic.bff.config;
 
 import com.academic.bff.proxy.BffProxy;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -76,6 +77,14 @@ public class BffController {
             HttpServletRequest request,
             @RequestBody(required = false) String body) {
         return bffProxy.forwardToAssignment("PUT", getPath(request), body, getUserId(request));
+    }
+
+    @GetMapping("/api/session/token")
+    @ResponseBody
+    public ResponseEntity<String> getSessionToken(HttpSession session) {
+        String token = (String) session.getAttribute("token");
+        if (token == null) return ResponseEntity.status(401).build();
+        return ResponseEntity.ok("{\"token\":\"" + token + "\"}");
     }
 
     // ── Helpers ────────────────────────────────────────────

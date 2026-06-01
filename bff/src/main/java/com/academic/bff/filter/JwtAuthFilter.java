@@ -31,10 +31,19 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain)
             throws ServletException, IOException {
 
+        String path = request.getRequestURI();
+
+        // Skip JWT check for web pages and auth endpoints
+        if (!path.startsWith("/api/") || path.startsWith("/api/auth/")
+                || path.equals("/api/session/token")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String authHeader = request.getHeader("Authorization");
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }
 
@@ -49,11 +58,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String userId = claims.getSubject();
         String role = claims.get("role", String.class);
 
-        // Store userId in request so proxy can forward it
         request.setAttribute("userId", userId);
         request.setAttribute("role", role);
 
-        // Tell Spring Security this request is authenticated
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(
                         userId,
@@ -62,7 +69,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 );
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        log.debug("Authenticated user: {} with role: {}", userId, role);
         filterChain.doFilter(request, response);
     }
 }

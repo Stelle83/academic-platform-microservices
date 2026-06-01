@@ -23,14 +23,18 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/students/**").hasAnyRole("TEACHER", "STUDENT")
-                        .requestMatchers("/api/attendance/**").hasAnyRole("TEACHER", "STUDENT")
-                        .requestMatchers("/api/assignments/**").hasAnyRole("TEACHER", "STUDENT")
-                        .anyRequest().authenticated()
+                        .requestMatchers(
+                                "/",
+                                "/login",
+                                "/logout",
+                                "/css/**",
+                                "/js/**",
+                                "/api/auth/**"
+                        ).permitAll()
+                        .anyRequest().permitAll()
                 )
                 .addFilterBefore(jwtAuthFilter,
                         UsernamePasswordAuthenticationFilter.class);

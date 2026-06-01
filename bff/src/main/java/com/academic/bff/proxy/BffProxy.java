@@ -27,6 +27,37 @@ public class BffProxy {
         this.assignmentClient = assignmentClient;
     }
 
+    public ResponseEntity<String> forwardWithToken(
+            String method, String path, String body, String token) {
+        log.info("Forwarding {} {} with token", method, path);
+
+        RestClient client;
+        if (path.startsWith("/api/students")) client = studentClient;
+        else if (path.startsWith("/api/attendance")) client = attendanceClient;
+        else if (path.startsWith("/api/assignments")) client = assignmentClient;
+        else client = authClient;
+
+        try {
+            RestClient.RequestBodySpec requestSpec = client
+                    .method(org.springframework.http.HttpMethod.valueOf(method))
+                    .uri(path)
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + token);
+
+            if (body != null && !body.isEmpty()) {
+                requestSpec.body(body);
+            }
+
+            return requestSpec
+                    .retrieve()
+                    .toEntity(String.class);
+
+        } catch (Exception e) {
+            log.error("Error forwarding: {}", e.getMessage());
+            return ResponseEntity.status(502).body("{\"error\":\"Service unavailable\"}");
+        }
+    }
+
     public ResponseEntity<String> forwardToAuth(
             String method, String path, String body) {
         return forward(authClient, method, path, body, null);

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Students — Academic Platform</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+
+<nav>
+    <div>
+        <a href="/dashboard">🏠 Home</a>
+        <a href="/students">👥 Students</a>
+        <a href="/attendance">📋 Attendance</a>
+        <a href="/assignments">📝 Assignments</a>
+    </div>
+    <div class="nav-right">
+        <a href="/logout" style="color:#e74c3c">Logout</a>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="card">
+        <h1>👥 Students</h1>
+        <div th:if="${error}" class="alert alert-error" th:text="${error}"></div>
+        <div id="students-list">Loading...</div>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    const data = [[${studentsJson}]];
+    const students = JSON.parse(data || '[]');
+    const list = document.getElementById('students-list');
+
+    if (students.length === 0) {
+        list.innerHTML = '<p style="color:#777">No students found.</p>';
+    } else {
+        let html = '<table><thead><tr>' +
+            '<th>Full Name</th><th>Username</th><th>Email</th><th>Actions</th>' +
+            '</tr></thead><tbody>';
+        students.forEach(s => {
+            html += `<tr>
+                <td>${s.fullName}</td>
+                <td>${s.username}</td>
+                <td>${s.email}</td>
+                <td>
+                    <a href="/attendance?studentId=${s.id}">Record Attendance</a>
+                </td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        list.innerHTML = html;
+    }
+</script>
+</body>
+</html>

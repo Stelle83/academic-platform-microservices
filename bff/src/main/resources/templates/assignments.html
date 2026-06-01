@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Assignments — Academic Platform</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+
+<nav>
+    <div>
+        <a href="/dashboard">🏠 Home</a>
+        <a href="/students">👥 Students</a>
+        <a href="/attendance">📋 Attendance</a>
+        <a href="/assignments">📝 Assignments</a>
+    </div>
+    <div class="nav-right">
+        <a href="/logout" style="color:#e74c3c">Logout</a>
+    </div>
+</nav>
+
+<div class="container">
+
+    <!-- Create form - teachers only -->
+    <div class="card" th:if="${role == 'TEACHER'}">
+        <h2>➕ Create Assignment</h2>
+        <div id="create-result"></div>
+        <form id="create-form">
+            <div class="form-group">
+                <label>Title</label>
+                <input type="text" id="title" required>
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="description" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Student ID</label>
+                <input type="text" id="studentId" required>
+            </div>
+            <div class="form-group">
+                <label>Deadline</label>
+                <input type="date" id="deadline" required>
+            </div>
+            <button type="submit" class="btn btn-success">Create</button>
+        </form>
+    </div>
+
+    <!-- Assignments list - EVERYONE sees this -->
+    <div class="card">
+        <h1>📝 Assignments</h1>
+        <div id="assignments-list">Loading...</div>
+    </div>
+
+</div>
+
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    const assignmentsJson = /*[[${assignmentsJson}]]*/ '[]';
+    const role = /*[[${role}]]*/ '';
+    const userId = /*[[${userId}]]*/ '';
+
+    console.log('RAW assignmentsJson:', assignmentsJson);
+    console.log('role:', role);
+    console.log('userId:', userId);
+
+    async function getToken() {
+        const res = await fetch('/api/session/token');
+        const data = await res.json();
+        return data.token;
+    }
+
+    async function loadAssignments() {
+        const list = document.getElementById('assignments-list');
+        if (!list) {
+            console.log('assignments-list div NOT FOUND');
+            return;
+        }
+
+        try {
+            const assignments = JSON.parse(assignmentsJson || '[]');
+            console.log('Parsed assignments:', assignments);
+
+            if (assignments.length === 0) {
+                list.innerHTML = '<p style="color:#777">No assignments yet.</p>';
+                return;
+            }
+
+            let html = '<table><thead><tr>' +
+                '<th>Title</th><th>Deadline</th><th>Status</th><th>Grade</th>' +
+                '</tr></thead><tbody>';
+            assignments.forEach(a => {
+                const statusClass = a.status === 'GRADED' ? 'badge-graded' : 'badge-active';
+                html += `<tr>
+                    <td>${a.title}</td>
+                    <td>${a.deadline}</td>
+                    <td><span class="badge ${statusClass}">${a.status}</span></td>
+                    <td>${a.grade || '—'}</td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+            list.innerHTML = html;
+
+        } catch (err) {
+            console.error('Parse error:', err);
+            list.innerHTML = '<p style="color:#c0392b">Error: ' + err.message + '</p>';
+        }
+    }
+
+    async function setupCreateForm() {
+        const createForm = document.getElementById('create-form');
+        if (!createForm) return;
+
+        createForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const token = await getToken();
+            const body = {
+                title: document.getElementById('title').value,
+                description: document.getElementById('description').value,
+                studentId: document.getElementById('studentId').value,
+                deadline: document.getElementById('deadline').value,
+                sendReminder: true
+            };
+
+            const res = await fetch('/api/assignments', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify(body)
+            });
+
+            const result = document.getElementById('create-result');
+            if (res.ok) {
+                result.innerHTML = '<div class="alert alert-success">Assignment created!</div>';
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                result.innerHTML = `<div class="alert alert-error">Failed: ${res.status}</div>`;
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadAssignments();
+        setupCreateForm();
+    });
+    /*]]>*/
+</script>
+</body>
+</html>
