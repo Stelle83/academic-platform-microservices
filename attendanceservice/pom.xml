@@ -16,7 +16,7 @@
 	<version>0.0.1-SNAPSHOT</version>
 
 	<properties>
-		<java.version>25</java.version>
+		<java.version>24</java.version>
 		<lombok.version>1.18.38</lombok.version>
 		<os.detected.classifier>windows-x86_64</os.detected.classifier>
 	</properties>
