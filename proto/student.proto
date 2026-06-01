@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package student;
+
+option java_multiple_files = true;
+option java_package = "com.academic.grpc.student";
+option java_outer_classname = "StudentProto";
+
+service StudentService {
+  rpc GetStudent (GetStudentRequest) returns (StudentResponse);
+  rpc StudentExists (GetStudentRequest) returns (StudentExistsResponse);
+}
+
+message GetStudentRequest {
+  string student_id = 1;
+}
+
+message StudentResponse {
+  string id = 1;
+  string username = 2;
+  string email = 3;
+  string full_name = 4;
+}
+
+message StudentExistsResponse {
+  bool exists = 1;
+}
