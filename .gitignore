@@ -1,5 +1,20 @@
+# Java / Maven build output
 **/target/
+
+# IntelliJ project files
 **/.idea/
 **/*.iml
+**/.mvn/
+
+# VS Code
+**/.vscode/
+
+# Environment variables (never commit secrets!)
 **/.env
-**/node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+**/*.log
