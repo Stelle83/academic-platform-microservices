@@ -1,4 +1,6 @@
 services:
+
+  # ── Databases ──────────────────────────────────────────
   authdb:
     image: postgres:16
     container_name: authdb
@@ -8,6 +10,8 @@ services:
       POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
+    networks:
+      - academic-network
 
   studentdb:
     image: postgres:16
@@ -18,6 +22,8 @@ services:
       POSTGRES_PASSWORD: postgres
     ports:
       - "5433:5432"
+    networks:
+      - academic-network
 
   attendancedb:
     image: postgres:16
@@ -28,13 +34,8 @@ services:
       POSTGRES_PASSWORD: postgres
     ports:
       - "5434:5432"
-
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: rabbitmq
-    ports:
-      - "5672:5672"
-      - "15672:15672"
+    networks:
+      - academic-network
 
   assignmentdb:
     image: postgres:16
@@ -45,6 +46,8 @@ services:
       POSTGRES_PASSWORD: postgres
     ports:
       - "5435:5432"
+    networks:
+      - academic-network
 
   notificationdb:
     image: postgres:16
@@ -55,3 +58,116 @@ services:
       POSTGRES_PASSWORD: postgres
     ports:
       - "5436:5432"
+    networks:
+      - academic-network
+
+  # ── Message Queue ───────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - academic-network
+
+  # ── Services ────────────────────────────────────────────
+  authservice:
+    build: ./authservice
+    container_name: authservice
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://authdb:5432/authdb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+    depends_on:
+      - authdb
+    networks:
+      - academic-network
+
+  studentservice:
+    build: ./studentservice
+    container_name: studentservice
+    ports:
+      - "8082:8082"
+      - "9090:9090"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://studentdb:5432/studentdb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_GRPC_SERVER_PORT: 9090
+    depends_on:
+      - studentdb
+    networks:
+      - academic-network
+
+  attendanceservice:
+    build: ./attendanceservice
+    container_name: attendanceservice
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://attendancedb:5432/attendancedb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_RABBITMQ_HOST: rabbitmq
+    depends_on:
+      - attendancedb
+      - rabbitmq
+    networks:
+      - academic-network
+
+  assignmentservice:
+    build: ./assignmentservice
+    container_name: assignmentservice
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://assignmentdb:5432/assignmentdb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_RABBITMQ_HOST: rabbitmq
+    depends_on:
+      - assignmentdb
+      - rabbitmq
+    networks:
+      - academic-network
+
+  notificationservice:
+    build: ./notificationservice
+    container_name: notificationservice
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://notificationdb:5432/notificationdb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_RABBITMQ_HOST: rabbitmq
+    depends_on:
+      - notificationdb
+      - rabbitmq
+    networks:
+      - academic-network
+
+  bff:
+    build: ./bff
+    container_name: bff
+    ports:
+      - "8080:8080"
+    environment:
+      SERVICES_AUTH-URL: http://authservice:8081
+      SERVICES_STUDENT-URL: http://studentservice:8082
+      SERVICES_ATTENDANCE-URL: http://attendanceservice:8083
+      SERVICES_ASSIGNMENT-URL: http://assignmentservice:8084
+    depends_on:
+      - authservice
+      - studentservice
+      - attendanceservice
+      - assignmentservice
+    networks:
+      - academic-network
+
+networks:
+  academic-network:
+    driver: bridge
