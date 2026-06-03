@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: assignmentdb
+  namespace: academic
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: assignmentdb
+  template:
+    metadata:
+      labels:
+        app: assignmentdb
+    spec:
+      containers:
+        - name: assignmentdb
+          image: postgres:16
+          env:
+            - name: POSTGRES_DB
+              value: assignmentdb
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              value: postgres
+          ports:
+            - containerPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: assignmentdb
+  namespace: academic
+spec:
+  selector:
+    app: assignmentdb
+  ports:
+    - port: 5432
+      targetPort: 5432

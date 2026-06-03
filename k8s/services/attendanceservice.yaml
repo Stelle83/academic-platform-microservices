@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: attendance-service
+  namespace: academic
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: attendanceservice
+  template:
+    metadata:
+      labels:
+        app: attendanceservice
+    spec:
+      containers:
+        - name: attendanceservice
+          image: academic-platform-attendanceservice:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8083
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://attendancedb:5432/attendancedb
+            - name: SPRING_DATASOURCE_USERNAME
+              value: postgres
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: postgres
+            - name: SPRING_RABBITMQ_HOST
+              value: rabbitmq
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: attendanceservice
+  namespace: academic
+spec:
+  selector:
+    app: attendanceservice
+  ports:
+    - port: 8083
+      targetPort: 8083

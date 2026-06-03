@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: studentdb
+  namespace: academic
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: studentdb
+  template:
+    metadata:
+      labels:
+        app: studentdb
+    spec:
+      containers:
+        - name: studentdb
+          image: postgres:16
+          env:
+            - name: POSTGRES_DB
+              value: studentdb
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              value: postgres
+          ports:
+            - containerPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: studentdb
+  namespace: academic
+spec:
+  selector:
+    app: studentdb
+  ports:
+    - port: 5432
+      targetPort: 5432

@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: attendancedb
+  namespace: academic
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: attendancedb
+  template:
+    metadata:
+      labels:
+        app: attendancedb
+    spec:
+      containers:
+        - name: attendancedb
+          image: postgres:16
+          env:
+            - name: POSTGRES_DB
+              value: attendancedb
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              value: postgres
+          ports:
+            - containerPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: attendancedb
+  namespace: academic
+spec:
+  selector:
+    app: attendancedb
+  ports:
+    - port: 5432
+      targetPort: 5432

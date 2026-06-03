@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: assignmentservice
+  namespace: academic
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: assignmentservice
+  template:
+    metadata:
+      labels:
+        app: assignmentservice
+    spec:
+      containers:
+        - name: assignmentservice
+          image: academic-platform-assignmentservice:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8084
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://assignmentdb:5432/assignmentdb
+            - name: SPRING_DATASOURCE_USERNAME
+              value: postgres
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: postgres
+            - name: SPRING_RABBITMQ_HOST
+              value: rabbitmq
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: assignmentservice
+  namespace: academic
+spec:
+  selector:
+    app: assignmentservice
+  ports:
+    - port: 8084
+      targetPort: 8084

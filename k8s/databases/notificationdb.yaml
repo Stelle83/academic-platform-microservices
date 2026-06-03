@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notificationdb
+  namespace: academic
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notificationdb
+  template:
+    metadata:
+      labels:
+        app: notificationdb
+    spec:
+      containers:
+        - name: notificationdb
+          image: postgres:16
+          env:
+            - name: POSTGRES_DB
+              value: notificationdb
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              value: postgres
+          ports:
+            - containerPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notificationdb
+  namespace: academic
+spec:
+  selector:
+    app: notificationdb
+  ports:
+    - port: 5432
+      targetPort: 5432
