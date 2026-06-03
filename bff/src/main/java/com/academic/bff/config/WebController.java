@@ -1,6 +1,7 @@
 package com.academic.bff.config;
 
 import com.academic.bff.proxy.BffProxy;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,7 +34,7 @@ public class WebController {
     public String login(
             @RequestParam String username,
             @RequestParam String password,
-            HttpSession session,
+            HttpServletRequest request,
             Model model) {
         try {
             String body = String.format(
@@ -50,16 +51,15 @@ public class WebController {
                 String userId = json.get("userId").asText();
                 String role = json.get("role").asText();
 
+                // Create NEW session explicitly
+                HttpSession session = request.getSession(true);
                 session.setAttribute("token", token);
                 session.setAttribute("userId", userId);
                 session.setAttribute("role", role);
                 session.setAttribute("username", username);
 
-                // ← ADD HERE
-                log.info("Session set — userId: {}, role: {}, token: {}",
-                        userId,
-                        role,
-                        token != null ? "SET" : "NULL");
+                log.info("Session created — id: {}, userId: {}, role: {}",
+                        session.getId(), userId, role);
 
                 return "redirect:/dashboard";
             } else {
@@ -68,13 +68,17 @@ public class WebController {
             }
         } catch (Exception e) {
             log.error("Login error: {}", e.getMessage());
-            model.addAttribute("error", "Login failed. Please try again.");
+            model.addAttribute("error", "Login failed.");
             return "login";
         }
     }
 
     @GetMapping("/dashboard")
-    public String dashboard(HttpSession session, Model model) {
+    public String dashboard(HttpSession session, Model model, @RequestParam(required = false) String t) {
+
+        log.info("Dashboard session id: {}", session.getId());
+        log.info("Dashboard token: {}", session.getAttribute("token"));
+
         if (session.getAttribute("token") == null) {
             return "redirect:/login";
         }

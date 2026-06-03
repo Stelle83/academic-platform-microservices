@@ -23,7 +23,8 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                        .sessionCreationPolicy(SessionCreationPolicy.ALWAYS)
+                        .sessionFixation().none()
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
