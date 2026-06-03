@@ -20,6 +20,7 @@
 </nav>
 
 <div class="container">
+
     <div class="card">
         <h1>📋 Record Attendance</h1>
         <div id="result"></div>
@@ -37,19 +38,28 @@
             <div class="form-group">
                 <label>Status</label>
                 <select id="status" name="status">
-                    <option value="PRESENT">Present</option>
-                    <option value="LATE">Late</option>
-                    <option value="ABSENT">Absent</option>
-                    <option value="SICK">Sick</option>
+                    <option value="PRESENT">✅ Present</option>
+                    <option value="LATE">🕐 Late</option>
+                    <option value="ABSENT">❌ Absent</option>
+                    <option value="SICK">🤒 Sick</option>
                 </select>
             </div>
             <button type="submit" class="btn btn-primary">Record</button>
         </form>
     </div>
+
+    <!-- Attendance history -->
+    <div class="card" id="history-card" style="display:none">
+        <h2>📊 Attendance History</h2>
+        <div id="stats-box" style="margin-bottom:1rem"></div>
+        <div id="attendance-list"></div>
+    </div>
+
 </div>
 
 <script th:inline="javascript">
-    const teacherId = [[${userId}]];
+    /*<![CDATA[*/
+    const teacherId = /*[[${userId}]]*/ '';
 
     async function getToken() {
         const res = await fetch('/api/session/token');
@@ -57,34 +67,147 @@
         return data.token;
     }
 
-    document.getElementById('date').value = new Date().toISOString().split('T')[0];
-
-    document.getElementById('attendance-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
+    async function loadAttendance(studentId) {
+        if (!studentId) return;
         const token = await getToken();
-        const body = {
-            studentId: document.getElementById('studentId').value,
-            teacherId: teacherId,
-            date: document.getElementById('date').value,
-            status: document.getElementById('status').value
-        };
 
-        const res = await fetch('/api/attendance', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + token
-            },
-            body: JSON.stringify(body)
-        });
+        try {
+            // Load attendance records
+            const res = await fetch(`/api/attendance/student/${studentId}`, {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const records = await res.json();
 
-        const result = document.getElementById('result');
-        if (res.ok) {
-            result.innerHTML = '<div class="alert alert-success">Attendance recorded!</div>';
-        } else {
-            result.innerHTML = `<div class="alert alert-error">Failed: ${res.status}</div>`;
+            // Load stats
+            const statsRes = await fetch(`/api/attendance/student/${studentId}/stats`, {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const stats = await statsRes.json();
+
+            // Show history card
+            document.getElementById('history-card').style.display = 'block';
+
+            // Show stats
+            document.getElementById('stats-box').innerHTML = `
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1rem">
+                    <div style="text-align:center;padding:1rem;background:#d5f5e3;border-radius:8px">
+                        <div style="font-size:1.5rem;font-weight:500;color:#1e8449">${stats.attendancePercentage}%</div>
+                        <div style="font-size:0.8rem;color:#555">Attendance</div>
+                    </div>
+                    <div style="text-align:center;padding:1rem;background:#d5f5e3;border-radius:8px">
+                        <div style="font-size:1.5rem;font-weight:500;color:#1e8449">${stats.presentCount}</div>
+                        <div style="font-size:0.8rem;color:#555">Present</div>
+                    </div>
+                    <div style="text-align:center;padding:1rem;background:#fdecea;border-radius:8px">
+                        <div style="font-size:1.5rem;font-weight:500;color:#c0392b">${stats.absentCount}</div>
+                        <div style="font-size:0.8rem;color:#555">Absent</div>
+                    </div>
+                    <div style="text-align:center;padding:1rem;background:#faeeda;border-radius:8px">
+                        <div style="font-size:1.5rem;font-weight:500;color:#854f0b">${stats.lateCount}</div>
+                        <div style="font-size:0.8rem;color:#555">Late</div>
+                    </div>
+                    <div style="text-align:center;padding:1rem;background:#eaf4fb;border-radius:8px">
+                        <div style="font-size:1.5rem;font-weight:500;color:#1a5276">${stats.sickCount}</div>
+                        <div style="font-size:0.8rem;color:#555">Sick</div>
+                    </div>
+                </div>
+            `;
+
+            // Show records table
+            if (records.length === 0) {
+                document.getElementById('attendance-list').innerHTML =
+                    '<p style="color:#777">No attendance records yet.</p>';
+                return;
+            }
+
+            let html = '<table><thead><tr>' +
+                '<th>Date</th><th>Status</th>' +
+                '</tr></thead><tbody>';
+
+            records.forEach(r => {
+                const statusClass = {
+                    'PRESENT': 'badge-present',
+                    'ABSENT': 'badge-absent',
+                    'LATE': 'badge-active',
+                    'SICK': 'badge-graded'
+                }[r.status] || '';
+
+                const statusIcon = {
+                    'PRESENT': '✅',
+                    'ABSENT': '❌',
+                    'LATE': '🕐',
+                    'SICK': '🤒'
+                }[r.status] || '';
+
+                html += `<tr>
+                    <td>${r.date}</td>
+                    <td><span class="badge ${statusClass}">${statusIcon} ${r.status}</span></td>
+                </tr>`;
+            });
+
+            html += '</tbody></table>';
+            document.getElementById('attendance-list').innerHTML = html;
+
+        } catch (err) {
+            console.error('Error loading attendance:', err);
         }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('date').value =
+            new Date().toISOString().split('T')[0];
+
+        // Load attendance if studentId is pre-filled
+        const studentId = document.getElementById('studentId').value;
+        if (studentId) {
+            loadAttendance(studentId);
+        }
+
+        document.getElementById('attendance-form')
+            .addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const token = await getToken();
+                const studentId = document.getElementById('studentId').value;
+
+                const body = {
+                    studentId: studentId,
+                    teacherId: teacherId,
+                    date: document.getElementById('date').value,
+                    status: document.getElementById('status').value
+                };
+
+                const res = await fetch('/api/attendance', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                const result = document.getElementById('result');
+                if (res.ok) {
+                    result.innerHTML =
+                        '<div class="alert alert-success">✅ Attendance recorded!</div>';
+                    setTimeout(() => {
+                        result.innerHTML = '';
+                        loadAttendance(studentId);
+                    }, 1000);
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    result.innerHTML = `<div class="alert alert-error">
+                    ${err.error || 'Failed to record attendance'}
+                </div>`;
+                }
+            });
+
+        // Reload attendance when studentId changes
+        document.getElementById('studentId')
+            .addEventListener('change', (e) => {
+                loadAttendance(e.target.value);
+            });
     });
+    /*]]>*/
 </script>
 </body>
 </html>

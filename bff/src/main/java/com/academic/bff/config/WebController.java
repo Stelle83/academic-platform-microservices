@@ -94,9 +94,6 @@ public class WebController {
             model.addAttribute("error", "Could not load students");
             model.addAttribute("studentsJson", "[]");
         }
-
-//        model.addAttribute("role", session.getAttribute("role"));
-//        model.addAttribute("teacherId", teacherId);
         return "students";
     }
 
@@ -107,6 +104,7 @@ public class WebController {
         }
         model.addAttribute("role", session.getAttribute("role"));
         model.addAttribute("userId", session.getAttribute("userId"));
+        model.addAttribute("username", session.getAttribute("username"));
         return "attendance";
     }
 

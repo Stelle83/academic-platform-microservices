@@ -17,9 +17,14 @@ public class AttendanceController {
     private final AttendanceService attendanceService;
 
     @PostMapping
-    public ResponseEntity<AttendanceResponse> recordAttendance(
+    public ResponseEntity<?> recordAttendance(
             @Valid @RequestBody AttendanceRequest request) {
-        return ResponseEntity.ok(attendanceService.recordAttendance(request));
+        try {
+            return ResponseEntity.ok(attendanceService.recordAttendance(request));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                    .body("{\"error\":\"" + e.getMessage() + "\"}");
+        }
     }
 
     @GetMapping("/student/{studentId}")
