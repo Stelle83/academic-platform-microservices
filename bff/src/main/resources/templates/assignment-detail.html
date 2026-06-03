@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Assignment Detail — Academic Platform</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+
+<nav>
+    <div>
+        <a href="/dashboard">🏠 Home</a>
+        <a href="/students">👥 Students</a>
+        <a href="/attendance">📋 Attendance</a>
+        <a href="/assignments">📝 Assignments</a>
+    </div>
+    <div class="nav-right">
+        <span th:text="${username}"></span> |
+        <a href="/logout" style="color:#e74c3c">Logout</a>
+    </div>
+</nav>
+
+<div class="container">
+
+    <div class="card">
+        <a href="/assignments"
+           style="color:#3498db;text-decoration:none;font-size:0.9rem">
+            ← Back to assignments
+        </a>
+    </div>
+
+    <!-- Assignment info -->
+    <div class="card" id="assignment-card">
+        <p style="color:#777">Loading...</p>
+    </div>
+
+    <!-- Student submissions list -->
+    <div class="card" id="submissions-card" style="display:none">
+        <h2>👥 Student Submissions</h2>
+        <div id="submissions-list"></div>
+    </div>
+
+    <!-- Grade form - teachers only -->
+    <div class="card" th:if="${role == 'TEACHER'}"
+         id="grade-card" style="display:none">
+        <h2>✏️ Grade Assignment</h2>
+        <p id="grading-student"
+           style="color:#777;margin-bottom:1rem"></p>
+        <div id="grade-result"></div>
+        <form id="grade-form">
+            <div class="form-group">
+                <label>Grade (1-5)</label>
+                <select id="grade">
+                    <option value="1">1 — Needs improvement</option>
+                    <option value="2">2 — Below expectations</option>
+                    <option value="3">3 — Meets expectations</option>
+                    <option value="4" selected>4 — Above expectations</option>
+                    <option value="5">5 — Excellent</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Feedback Category</label>
+                <select id="feedbackCategory">
+                    <option value="DOCUMENTATION">Documentation</option>
+                    <option value="CONSTRUCTION">Construction</option>
+                    <option value="INDUSTRIALIZATION">
+                        Industrialization</option>
+                    <option value="FITTING">Fitting</option>
+                    <option value="COMMUNICATION">Communication</option>
+                    <option value="TIME_MANAGEMENT">Time Management</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Comment</label>
+                <textarea id="feedbackComment" rows="3"
+                          placeholder="Additional feedback..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">
+                Save Grade
+            </button>
+        </form>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    const role = /*[[${role}]]*/ '';
+    const currentUserId = /*[[${userId}]]*/ '';
+    let gradingAssignmentId = null;
+
+    async function getToken() {
+        const res = await fetch('/api/session/token');
+        const data = await res.json();
+        return data.token;
+    }
+
+    async function loadAssignment() {
+        const token = await getToken();
+        const assignmentId = window.location.pathname.split('/').pop();
+
+        try {
+            const res = await fetch(`/api/assignments/${assignmentId}`, {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+
+            if (!res.ok) {
+                document.getElementById('assignment-card').innerHTML =
+                    '<p style="color:#c0392b">Assignment not found.</p>';
+                return;
+            }
+
+            const a = await res.json();
+            const statusClass = a.status === 'GRADED'
+                ? 'badge-graded' : 'badge-active';
+
+            document.getElementById('assignment-card').innerHTML = `
+                <h1>📝 ${a.title}</h1>
+                <span class="badge ${statusClass}"
+                      style="margin-bottom:1rem;display:inline-block">
+                    ${a.status}
+                </span>
+
+                <div style="margin:1rem 0;padding:1rem;background:
+                     var(--color-background-secondary);border-radius:8px">
+                    <strong>Description</strong>
+                    <p style="margin-top:0.5rem;color:var(--color-text-secondary)">
+                        ${a.description || 'No description provided'}
+                    </p>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;
+                            gap:1rem;margin-top:1rem">
+                    <div>
+                        <strong>Deadline</strong>
+                        <p style="color:var(--color-text-secondary)">
+                            📅 ${a.deadline}
+                        </p>
+                    </div>
+                    <div>
+                        <strong>Status</strong>
+                        <p style="color:var(--color-text-secondary)">
+                            ${a.status}
+                        </p>
+                    </div>
+                    ${a.grade ? `
+                    <div>
+                        <strong>Grade</strong>
+                        <p style="color:var(--color-text-secondary)">
+                            ${a.grade}/5
+                        </p>
+                    </div>
+                    <div>
+                        <strong>Feedback Category</strong>
+                        <p style="color:var(--color-text-secondary)">
+                            ${a.feedbackCategory || '—'}
+                        </p>
+                    </div>
+                    ` : ''}
+                    ${a.feedbackComment ? `
+                    <div style="grid-column:1/-1">
+                        <strong>Comment</strong>
+                        <p style="color:var(--color-text-secondary)">
+                            ${a.feedbackComment}
+                        </p>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+
+            // Load all assignments with same title for teacher view
+            if (role === 'TEACHER') {
+                await loadStudentSubmissions(a.title, a.teacherId, token);
+            }
+
+        } catch (err) {
+            console.error('Error loading assignment:', err);
+        }
+    }
+
+    async function loadStudentSubmissions(title, teacherId, token) {
+        try {
+            const res = await fetch(
+                `/api/assignments/teacher/${teacherId}`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+
+            if (!res.ok) return;
+
+            const allAssignments = await res.json();
+            const related = allAssignments.filter(a => a.title === title);
+
+            if (related.length === 0) return;
+
+            document.getElementById('submissions-card')
+                .style.display = 'block';
+
+            let html = '<table><thead><tr>' +
+                '<th>Student ID</th>' +
+                '<th>Status</th>' +
+                '<th>Grade</th>' +
+                '<th>Feedback</th>' +
+                '<th>Action</th>' +
+                '</tr></thead><tbody>';
+
+            related.forEach(a => {
+                const statusClass = a.status === 'GRADED'
+                    ? 'badge-graded' : 'badge-active';
+
+                html += `<tr>
+                    <td style="font-size:0.8rem;color:#777">
+                        ${a.studentId.substring(0, 8)}...
+                    </td>
+                    <td>
+                        <span class="badge ${statusClass}">
+                            ${a.status}
+                        </span>
+                    </td>
+                    <td>${a.grade ? a.grade + '/5' : '—'}</td>
+                    <td>${a.feedbackCategory || '—'}</td>
+                    <td>
+                        ${a.status !== 'GRADED' ? `
+                        <button class="btn btn-primary"
+                                style="font-size:0.8rem;padding:0.3rem 0.8rem"
+                                onclick="openGradeForm('${a.id}',
+                                         '${a.studentId}')">
+                            Grade
+                        </button>` : '✅'}
+                    </td>
+                </tr>`;
+            });
+
+            html += '</tbody></table>';
+            document.getElementById('submissions-list').innerHTML = html;
+
+        } catch (err) {
+            console.error('Error loading submissions:', err);
+        }
+    }
+
+    function openGradeForm(assignmentId, studentId) {
+        gradingAssignmentId = assignmentId;
+        const gradeCard = document.getElementById('grade-card');
+        gradeCard.style.display = 'block';
+        document.getElementById('grading-student').textContent =
+            `Grading student: ${studentId.substring(0, 8)}...`;
+        gradeCard.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function setupGradeForm() {
+        const gradeForm = document.getElementById('grade-form');
+        if (!gradeForm) return;
+
+        gradeForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!gradingAssignmentId) return;
+
+            const token = await getToken();
+            const res = await fetch(
+                `/api/assignments/${gradingAssignmentId}/grade`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({
+                        grade: parseInt(
+                            document.getElementById('grade').value),
+                        feedbackCategory:
+                        document.getElementById('feedbackCategory').value,
+                        feedbackComment:
+                        document.getElementById('feedbackComment').value
+                    })
+                });
+
+            const result = document.getElementById('grade-result');
+            if (res.ok) {
+                result.innerHTML =
+                    '<div class="alert alert-success">✅ Grade saved!</div>';
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                result.innerHTML =
+                    '<div class="alert alert-error">Failed to save</div>';
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadAssignment();
+        setupGradeForm();
+    });
+    /*]]>*/
+</script>
+</body>
+</html>

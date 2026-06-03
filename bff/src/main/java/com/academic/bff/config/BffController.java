@@ -80,6 +80,17 @@ public class BffController {
         return bffProxy.forwardToAssignment("GET", getPath(request), null, getUserId(request));
     }
 
+    @GetMapping("/api/assignments/{assignmentId}")
+    public ResponseEntity<String> assignmentGetById(
+            @PathVariable String assignmentId,
+            HttpServletRequest request) {
+        return bffProxy.forwardToAssignment(
+                "GET",
+                "/api/assignments/" + assignmentId,
+                null,
+                getUserId(request));
+    }
+
     @PutMapping("/api/assignments/**")
     public ResponseEntity<String> assignmentPut(
             HttpServletRequest request,
