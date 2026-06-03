@@ -10,8 +10,8 @@
 <nav>
     <div>
         <a href="/dashboard">🏠 Home</a>
-        <a href="/students">👥 Students</a>
-        <a href="/attendance">📋 Attendance</a>
+        <a th:if="${role == 'TEACHER'}" href="/students">👥 Students</a>
+        <a th:if="${role == 'TEACHER'}" href="/attendance">📋 Attendance</a>
         <a href="/assignments">📝 Assignments</a>
     </div>
     <div class="nav-right">
@@ -21,25 +21,188 @@
 </nav>
 
 <div class="container">
-    <div class="card">
-        <h1>Welcome back, <span th:text="${username}"></span>! 👋</h1>
-        <p style="color:#777">Role: <strong th:text="${role}"></strong></p>
+
+    <!-- Student Profile + Attendance -->
+    <div th:if="${role == 'STUDENT'}">
+        <div class="card" id="profile-card">
+            <p style="color:#777">Loading profile...</p>
+        </div>
+        <div class="card" id="attendance-card">
+            <p style="color:#777">Loading attendance...</p>
+        </div>
     </div>
 
-    <div class="dashboard-grid">
-        <a href="/students" class="dashboard-card">
-            <div class="icon">👥</div>
-            <h3>Students</h3>
-        </a>
-        <a href="/attendance" class="dashboard-card">
-            <div class="icon">📋</div>
-            <h3>Attendance</h3>
-        </a>
-        <a href="/assignments" class="dashboard-card">
-            <div class="icon">📝</div>
-            <h3>Assignments</h3>
-        </a>
+    <!-- Teacher Dashboard -->
+    <div th:if="${role == 'TEACHER'}">
+        <div class="card">
+            <h1>Welcome back, <span th:text="${username}"></span>! 👋</h1>
+            <p style="color:#777">Role: <strong>Teacher</strong></p>
+        </div>
+        <div class="dashboard-grid">
+            <a href="/students" class="dashboard-card">
+                <div class="icon">👥</div>
+                <h3>Students</h3>
+            </a>
+            <a href="/attendance" class="dashboard-card">
+                <div class="icon">📋</div>
+                <h3>Attendance</h3>
+            </a>
+            <a href="/assignments" class="dashboard-card">
+                <div class="icon">📝</div>
+                <h3>Assignments</h3>
+            </a>
+        </div>
     </div>
+
 </div>
+
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    const role = /*[[${role}]]*/ '';
+    const userId = /*[[${userId}]]*/ '';
+
+    async function getToken() {
+        const res = await fetch('/api/session/token');
+        const data = await res.json();
+        return data.token;
+    }
+
+    async function loadStudentDashboard() {
+        if (role !== 'STUDENT') return;
+        const token = await getToken();
+
+        try {
+            // Load student profile
+            const profileRes = await fetch(`/api/students/${userId}`, {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+
+            if (profileRes.ok) {
+                const student = await profileRes.json();
+                document.getElementById('profile-card').innerHTML = `
+                    <h1>👋 Welcome, ${student.fullName}!</h1>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;
+                                gap:1rem;margin-top:1rem">
+                        <div>
+                            <strong>Full Name</strong>
+                            <p style="color:var(--color-text-secondary)">
+                                ${student.fullName}
+                            </p>
+                        </div>
+                        <div>
+                            <strong>Username</strong>
+                            <p style="color:var(--color-text-secondary)">
+                                ${student.username}
+                            </p>
+                        </div>
+                        <div>
+                            <strong>Email</strong>
+                            <p style="color:var(--color-text-secondary)">
+                                ${student.email}
+                            </p>
+                        </div>
+                        <div>
+                            <strong>Role</strong>
+                            <p style="color:var(--color-text-secondary)">
+                                Student
+                            </p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Load attendance stats
+            const statsRes = await fetch(
+                `/api/attendance/student/${userId}/stats`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+
+            if (statsRes.ok) {
+                const stats = await statsRes.json();
+                const pct = stats.attendancePercentage;
+                const color = pct >= 80 ? '#1e8449'
+                    : pct >= 60 ? '#854f0b'
+                        : '#c0392b';
+                const bg = pct >= 80 ? '#d5f5e3'
+                    : pct >= 60 ? '#faeeda'
+                        : '#fdecea';
+
+                document.getElementById('attendance-card').innerHTML = `
+                    <h2>📋 My Attendance</h2>
+                    <div style="display:grid;
+                                grid-template-columns:repeat(auto-fit,
+                                minmax(120px,1fr));gap:1rem;margin-top:1rem">
+                        <div style="text-align:center;padding:1rem;
+                                    background:${bg};border-radius:8px">
+                            <div style="font-size:2rem;font-weight:500;
+                                        color:${color}">
+                                ${pct}%
+                            </div>
+                            <div style="font-size:0.8rem;color:#555">
+                                Attendance Rate
+                            </div>
+                        </div>
+                        <div style="text-align:center;padding:1rem;
+                                    background:#d5f5e3;border-radius:8px">
+                            <div style="font-size:2rem;font-weight:500;
+                                        color:#1e8449">
+                                ${stats.presentCount}
+                            </div>
+                            <div style="font-size:0.8rem;color:#555">
+                                Present
+                            </div>
+                        </div>
+                        <div style="text-align:center;padding:1rem;
+                                    background:#fdecea;border-radius:8px">
+                            <div style="font-size:2rem;font-weight:500;
+                                        color:#c0392b">
+                                ${stats.absentCount}
+                            </div>
+                            <div style="font-size:0.8rem;color:#555">
+                                Absent
+                            </div>
+                        </div>
+                        <div style="text-align:center;padding:1rem;
+                                    background:#faeeda;border-radius:8px">
+                            <div style="font-size:2rem;font-weight:500;
+                                        color:#854f0b">
+                                ${stats.lateCount}
+                            </div>
+                            <div style="font-size:0.8rem;color:#555">
+                                Late
+                            </div>
+                        </div>
+                        <div style="text-align:center;padding:1rem;
+                                    background:#eaf4fb;border-radius:8px">
+                            <div style="font-size:2rem;font-weight:500;
+                                        color:#1a5276">
+                                ${stats.sickCount}
+                            </div>
+                            <div style="font-size:0.8rem;color:#555">
+                                Sick
+                            </div>
+                        </div>
+                    </div>
+                    ${stats.absentCount >= 3 ? `
+                    <div class="alert alert-error" style="margin-top:1rem">
+                        ⚠️ Warning: You have ${stats.absentCount} absences.
+                        Please contact your teacher.
+                    </div>` : ''}
+                `;
+            } else {
+                document.getElementById('attendance-card').innerHTML = `
+                    <h2>📋 My Attendance</h2>
+                    <p style="color:#777">No attendance records yet.</p>
+                `;
+            }
+
+        } catch (err) {
+            console.error('Error loading student dashboard:', err);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadStudentDashboard);
+    /*]]>*/
+</script>
 </body>
 </html>

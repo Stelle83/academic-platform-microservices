@@ -70,6 +70,7 @@ public class WebController {
         }
         model.addAttribute("username", session.getAttribute("username"));
         model.addAttribute("role", session.getAttribute("role"));
+        model.addAttribute("userId", session.getAttribute("userId")); // ← ADD THIS!
         return "dashboard";
     }
 
@@ -135,6 +136,7 @@ public class WebController {
 
         model.addAttribute("role", role);
         model.addAttribute("userId", userId);
+        model.addAttribute("username", session.getAttribute("username"));
         return "assignments";
     }
 

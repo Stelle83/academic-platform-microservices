@@ -18,4 +18,5 @@ public class AssignmentResponse {
     private Integer grade;
     private Assignment.FeedbackCategory feedbackCategory;
     private String feedbackComment;
+    private String submissionComment;
 }

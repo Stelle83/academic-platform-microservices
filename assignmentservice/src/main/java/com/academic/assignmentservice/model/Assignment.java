@@ -43,6 +43,9 @@ public class Assignment {
     @Column(length = 500)
     private String feedbackComment;
 
+    @Column(length = 1000)
+    private String submissionComment;
+
     public enum AssignmentStatus {
         ACTIVE, SUBMITTED, GRADED
     }

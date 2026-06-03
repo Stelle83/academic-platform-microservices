@@ -146,6 +146,37 @@ public class AssignmentService {
         return mapToResponse(assignment);
     }
 
+    public AssignmentResponse submitAssignment(
+            String assignmentId, SubmitRequest request) {
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new RuntimeException("Assignment not found"));
+
+        if (assignment.getStatus() == Assignment.AssignmentStatus.GRADED) {
+            throw new RuntimeException("Cannot submit a graded assignment");
+        }
+
+        assignment.setStatus(Assignment.AssignmentStatus.SUBMITTED);
+        assignment.setSubmissionComment(request.getComment());
+        assignmentRepository.save(assignment);
+
+        log.info("Assignment submitted: {}", assignmentId);
+
+        // Publish event so teacher gets notified
+        rabbitTemplate.convertAndSend(
+                RabbitMQConfig.ASSIGNMENT_EXCHANGE,
+                RabbitMQConfig.ASSIGNMENT_GRADED_KEY,
+                Map.of(
+                        "assignmentId", assignment.getId(),
+                        "studentId", assignment.getStudentId(),
+                        "teacherId", assignment.getTeacherId(),
+                        "title", assignment.getTitle(),
+                        "event", "SUBMITTED"
+                )
+        );
+
+        return mapToResponse(assignment);
+    }
+
     private AssignmentResponse mapToResponse(Assignment assignment) {
         return new AssignmentResponse(
                 assignment.getId(),
@@ -157,7 +188,8 @@ public class AssignmentService {
                 assignment.getStatus(),
                 assignment.getGrade(),
                 assignment.getFeedbackCategory(),
-                assignment.getFeedbackComment()
+                assignment.getFeedbackComment(),
+                assignment.getSubmissionComment()
         );
     }
 }

@@ -10,22 +10,22 @@
 <nav>
     <div>
         <a href="/dashboard">🏠 Home</a>
-        <a href="/students">👥 Students</a>
-        <a href="/attendance">📋 Attendance</a>
+        <a th:if="${role == 'TEACHER'}" href="/students">👥 Students</a>
+        <a th:if="${role == 'TEACHER'}" href="/attendance">📋 Attendance</a>
         <a href="/assignments">📝 Assignments</a>
     </div>
     <div class="nav-right">
+        <span th:text="${username}"></span> |
         <a href="/logout" style="color:#e74c3c">Logout</a>
     </div>
 </nav>
 
 <div class="container">
 
-    <!-- Create form - teachers only -->
+    <!-- Teacher: Create assignment form -->
     <div class="card" th:if="${role == 'TEACHER'}">
         <h2>➕ Create Assignment for All Students</h2>
         <div id="create-result"></div>
-
         <form id="create-form">
             <div class="form-group">
                 <label>Title</label>
@@ -51,9 +51,21 @@
         </form>
     </div>
 
-    <!-- Assignments list - EVERYONE sees this -->
-    <div class="card">
-        <h1>📝 Assignments</h1>
+    <!-- Student: Active assignments -->
+    <div th:if="${role == 'STUDENT'}" class="card">
+        <h2>📌 Active Assignments</h2>
+        <div id="active-list">Loading...</div>
+    </div>
+
+    <!-- Student: Completed assignments -->
+    <div th:if="${role == 'STUDENT'}" class="card">
+        <h2>✅ Completed Assignments</h2>
+        <div id="completed-list">Loading...</div>
+    </div>
+
+    <!-- Teacher: All assignments -->
+    <div th:if="${role == 'TEACHER'}" class="card">
+        <h1>📝 All Assignments</h1>
         <div id="assignments-list">Loading...</div>
     </div>
 
@@ -65,9 +77,8 @@
     const role = /*[[${role}]]*/ '';
     const userId = /*[[${userId}]]*/ '';
 
-    console.log('RAW assignmentsJson:', assignmentsJson);
     console.log('role:', role);
-    console.log('userId:', userId);
+    console.log('assignmentsJson:', assignmentsJson);
 
     async function getToken() {
         const res = await fetch('/api/session/token');
@@ -75,42 +86,153 @@
         return data.token;
     }
 
-    async function loadAssignments() {
-        const list = document.getElementById('assignments-list');
-        if (!list) {
-            console.log('assignments-list div NOT FOUND');
-            return;
-        }
+    async function loadStudentAssignments() {
+        if (role !== 'STUDENT') return;
 
         try {
             const assignments = JSON.parse(assignmentsJson || '[]');
-            console.log('Parsed assignments:', assignments);
+            const today = new Date().toISOString().split('T')[0];
+
+            // Split into active and completed
+            const active = assignments.filter(
+                a => a.status === 'ACTIVE');
+            const completed = assignments.filter(
+                a => a.status === 'GRADED' || a.status === 'SUBMITTED');
+
+            // Render active
+            const activeList = document.getElementById('active-list');
+            if (active.length === 0) {
+                activeList.innerHTML =
+                    '<p style="color:#777">No active assignments!</p>';
+            } else {
+                let html = '<table><thead><tr>' +
+                    '<th>Title</th><th>Deadline</th>' +
+                    '<th>Days left</th><th>Status</th>' +
+                    '</tr></thead><tbody>';
+
+                active.forEach(a => {
+                    const deadline = new Date(a.deadline);
+                    const now = new Date();
+                    const daysLeft = Math.ceil(
+                        (deadline - now) / (1000 * 60 * 60 * 24));
+                    const urgency = daysLeft <= 3
+                        ? 'color:#c0392b;font-weight:500'
+                        : daysLeft <= 7
+                            ? 'color:#854f0b'
+                            : 'color:#1e8449';
+
+                    html += `<tr style="cursor:pointer"
+                                onclick="window.location=
+                                '/assignments/${a.id}'">
+                        <td>${a.title}</td>
+                        <td>${a.deadline}</td>
+                        <td style="${urgency}">
+                            ${daysLeft > 0
+                        ? daysLeft + ' days'
+                        : '⚠️ Overdue'}
+                        </td>
+                        <td><span class="badge badge-active">
+                            ACTIVE
+                        </span></td>
+                    </tr>`;
+                });
+
+                html += '</tbody></table>';
+                activeList.innerHTML = html;
+            }
+
+            // Render completed
+            const completedList =
+                document.getElementById('completed-list');
+            if (completed.length === 0) {
+                completedList.innerHTML =
+                    '<p style="color:#777">No completed assignments yet.</p>';
+            } else {
+                let html = '<table><thead><tr>' +
+                    '<th>Title</th><th>Deadline</th>' +
+                    '<th>Grade</th><th>Feedback</th>' +
+                    '</tr></thead><tbody>';
+
+                completed.forEach(a => {
+                    html += `<tr style="cursor:pointer"
+                                onclick="window.location=
+                                '/assignments/${a.id}'">
+                        <td>${a.title}</td>
+                        <td>${a.deadline}</td>
+                        <td>${a.grade ? a.grade + '/5' : '—'}</td>
+                        <td>${a.feedbackCategory || '—'}</td>
+                    </tr>`;
+                });
+
+                html += '</tbody></table>';
+                completedList.innerHTML = html;
+            }
+
+        } catch (err) {
+            console.error('Error:', err);
+        }
+    }
+
+    async function loadTeacherAssignments() {
+        if (role !== 'TEACHER') return;
+
+        const list = document.getElementById('assignments-list');
+        if (!list) return;
+
+        try {
+            const assignments = JSON.parse(assignmentsJson || '[]');
 
             if (assignments.length === 0) {
-                list.innerHTML = '<p style="color:#777">No assignments yet.</p>';
+                list.innerHTML =
+                    '<p style="color:#777">No assignments yet.</p>';
                 return;
             }
 
-            let html = '<table><thead><tr>' +
-                '<th>Title</th><th>Deadline</th><th>Status</th><th>Grade</th>' +
-                '</tr></thead><tbody>';
+            // Group by title to avoid duplicates
+            const grouped = {};
             assignments.forEach(a => {
-                const statusClass = a.status === 'GRADED'
-                    ? 'badge-graded' : 'badge-active';
-                html += `<tr style="cursor:pointer"
-                onclick="window.location='/assignments/${a.id}'">
-        <td>${a.title}</td>
-        <td>${a.deadline}</td>
-        <td><span class="badge ${statusClass}">${a.status}</span></td>
-        <td>${a.grade ? a.grade + '/5' : '—'}</td>
-    </tr>`;
+                if (!grouped[a.title]) {
+                    grouped[a.title] = {
+                        ...a,
+                        count: 0,
+                        graded: 0
+                    };
+                }
+                grouped[a.title].count++;
+                if (a.status === 'GRADED') {
+                    grouped[a.title].graded++;
+                }
             });
+
+            let html = '<table><thead><tr>' +
+                '<th>Title</th><th>Deadline</th>' +
+                '<th>Students</th><th>Graded</th>' +
+                '</tr></thead><tbody>';
+
+            Object.values(grouped).forEach(a => {
+                const allGraded = a.graded === a.count;
+                html += `<tr style="cursor:pointer"
+                            onclick="window.location=
+                            '/assignments/${a.id}'">
+                    <td>${a.title}</td>
+                    <td>${a.deadline}</td>
+                    <td>${a.count}</td>
+                    <td>
+                        <span class="badge ${allGraded
+                    ? 'badge-graded' : 'badge-active'}">
+                            ${a.graded}/${a.count}
+                        </span>
+                    </td>
+                </tr>`;
+            });
+
             html += '</tbody></table>';
             list.innerHTML = html;
 
         } catch (err) {
-            console.error('Parse error:', err);
-            list.innerHTML = '<p style="color:#c0392b">Error: ' + err.message + '</p>';
+            console.error('Error:', err);
+            list.innerHTML =
+                '<p style="color:#c0392b">Error loading assignments.</p>';
         }
     }
 
@@ -123,10 +245,12 @@
             const token = await getToken();
             const result = document.getElementById('create-result');
 
-            result.innerHTML = '<div class="alert" style="background:#eaf4fb;' +
-                'color:#1a5276;border:1px solid #aed6f1">Fetching students...</div>';
+            result.innerHTML = `<div class="alert"
+                style="background:#eaf4fb;color:#1a5276;
+                       border:1px solid #aed6f1">
+                Fetching students...
+            </div>`;
 
-            // Step 1 — get all students for this teacher
             const studentsRes = await fetch(
                 `/api/students/teacher/${userId}`, {
                     headers: { 'Authorization': 'Bearer ' + token }
@@ -134,7 +258,8 @@
 
             if (!studentsRes.ok) {
                 result.innerHTML =
-                    '<div class="alert alert-error">Could not fetch students</div>';
+                    '<div class="alert alert-error">' +
+                    'Could not fetch students</div>';
                 return;
             }
 
@@ -142,18 +267,19 @@
 
             if (students.length === 0) {
                 result.innerHTML =
-                    '<div class="alert alert-error">No students found!</div>';
+                    '<div class="alert alert-error">' +
+                    'No students found!</div>';
                 return;
             }
 
             const studentIds = students.map(s => s.id);
 
-            result.innerHTML = `<div class="alert" style="background:#eaf4fb;
-            color:#1a5276;border:1px solid #aed6f1">
-            Creating assignment for ${studentIds.length} students...
-        </div>`;
+            result.innerHTML = `<div class="alert"
+                style="background:#eaf4fb;color:#1a5276;
+                       border:1px solid #aed6f1">
+                Creating for ${studentIds.length} students...
+            </div>`;
 
-            // Step 2 — create assignment for all
             const res = await fetch('/api/assignments/all', {
                 method: 'POST',
                 headers: {
@@ -171,19 +297,25 @@
 
             if (res.ok) {
                 result.innerHTML = `<div class="alert alert-success">
-                ✅ Assignment created for ${studentIds.length} students!
-            </div>`;
+                    ✅ Assignment created for
+                    ${studentIds.length} students!
+                </div>`;
                 setTimeout(() => location.reload(), 1500);
             } else {
                 result.innerHTML =
-                    '<div class="alert alert-error">Failed to create assignment</div>';
+                    '<div class="alert alert-error">' +
+                    'Failed to create assignment</div>';
             }
         });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        loadAssignments();
-        setupCreateForm();
+        if (role === 'STUDENT') {
+            loadStudentAssignments();
+        } else {
+            loadTeacherAssignments();
+            setupCreateForm();
+        }
     });
     /*]]>*/
 </script>

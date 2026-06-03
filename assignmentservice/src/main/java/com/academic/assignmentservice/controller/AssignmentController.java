@@ -10,7 +10,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/assignments")
-@RequiredArgsConstructor
+@RequiredArgsConstructor  // ← this generates the constructor
 public class AssignmentController {
 
     private final AssignmentService assignmentService;
@@ -65,5 +65,18 @@ public class AssignmentController {
     public ResponseEntity<AssignmentResponse> getAssignment(
             @PathVariable String assignmentId) {
         return ResponseEntity.ok(assignmentService.getAssignment(assignmentId));
+    }
+
+    @PutMapping("/{assignmentId}/submit")
+    public ResponseEntity<?> submitAssignment(
+            @PathVariable String assignmentId,
+            @RequestBody SubmitRequest request) {
+        try {
+            return ResponseEntity.ok(
+                    assignmentService.submitAssignment(assignmentId, request));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                    .body("{\"error\":\"" + e.getMessage() + "\"}");
+        }
     }
 }

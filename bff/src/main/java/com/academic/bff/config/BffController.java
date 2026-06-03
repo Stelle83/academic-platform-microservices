@@ -98,6 +98,18 @@ public class BffController {
         return bffProxy.forwardToAssignment("PUT", getPath(request), body, getUserId(request));
     }
 
+    @PutMapping("/api/assignments/{assignmentId}/submit")
+    public ResponseEntity<String> submitAssignment(
+            @PathVariable String assignmentId,
+            HttpServletRequest request,
+            @RequestBody(required = false) String body) {
+        return bffProxy.forwardToAssignment(
+                "PUT",
+                "/api/assignments/" + assignmentId + "/submit",
+                body,
+                getUserId(request));
+    }
+
     @GetMapping("/api/session/token")
     @ResponseBody
     public ResponseEntity<String> getSessionToken(HttpSession session) {

@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Assignment Detail — Academic Platform</title>
+    <title>Assignment — Academic Platform</title>
     <link rel="stylesheet" th:href="@{/css/style.css}">
 </head>
 <body>
@@ -10,8 +10,8 @@
 <nav>
     <div>
         <a href="/dashboard">🏠 Home</a>
-        <a href="/students">👥 Students</a>
-        <a href="/attendance">📋 Attendance</a>
+        <a th:if="${role == 'TEACHER'}" href="/students">👥 Students</a>
+        <a th:if="${role == 'TEACHER'}" href="/attendance">📋 Attendance</a>
         <a href="/assignments">📝 Assignments</a>
     </div>
     <div class="nav-right">
@@ -34,13 +34,39 @@
         <p style="color:#777">Loading...</p>
     </div>
 
-    <!-- Student submissions list -->
-    <div class="card" id="submissions-card" style="display:none">
+    <!-- Student: Submit form -->
+    <div class="card" th:if="${role == 'STUDENT'}"
+         id="submit-card" style="display:none">
+        <h2>📤 Submit Assignment</h2>
+        <div id="submit-result"></div>
+        <form id="submit-form">
+            <div class="form-group">
+                <label>Comment to teacher (optional)</label>
+                <textarea id="submitComment" rows="4"
+                          placeholder="Describe what you did, any challenges, questions...">
+                </textarea>
+            </div>
+            <button type="submit" class="btn btn-success">
+                📤 Submit Assignment
+            </button>
+        </form>
+    </div>
+
+    <!-- Student: Already submitted -->
+    <div class="card" th:if="${role == 'STUDENT'}"
+         id="submitted-card" style="display:none">
+        <h2>✅ Submitted</h2>
+        <div id="submission-info"></div>
+    </div>
+
+    <!-- Teacher: Student submissions list -->
+    <div class="card" th:if="${role == 'TEACHER'}"
+         id="submissions-card" style="display:none">
         <h2>👥 Student Submissions</h2>
         <div id="submissions-list"></div>
     </div>
 
-    <!-- Grade form - teachers only -->
+    <!-- Teacher: Grade form -->
     <div class="card" th:if="${role == 'TEACHER'}"
          id="grade-card" style="display:none">
         <h2>✏️ Grade Assignment</h2>
@@ -80,6 +106,7 @@
             </button>
         </form>
     </div>
+
 </div>
 
 <script th:inline="javascript">
@@ -110,8 +137,13 @@
             }
 
             const a = await res.json();
-            const statusClass = a.status === 'GRADED'
-                ? 'badge-graded' : 'badge-active';
+
+            const statusColors = {
+                'ACTIVE': 'badge-active',
+                'SUBMITTED': 'badge-graded',
+                'GRADED': 'badge-graded'
+            };
+            const statusClass = statusColors[a.status] || 'badge-active';
 
             document.getElementById('assignment-card').innerHTML = `
                 <h1>📝 ${a.title}</h1>
@@ -120,10 +152,12 @@
                     ${a.status}
                 </span>
 
-                <div style="margin:1rem 0;padding:1rem;background:
-                     var(--color-background-secondary);border-radius:8px">
+                <div style="margin:1rem 0;padding:1rem;
+                            background:var(--color-background-secondary);
+                            border-radius:8px">
                     <strong>Description</strong>
-                    <p style="margin-top:0.5rem;color:var(--color-text-secondary)">
+                    <p style="margin-top:0.5rem;
+                              color:var(--color-text-secondary)">
                         ${a.description || 'No description provided'}
                     </p>
                 </div>
@@ -146,7 +180,7 @@
                     <div>
                         <strong>Grade</strong>
                         <p style="color:var(--color-text-secondary)">
-                            ${a.grade}/5
+                            ⭐ ${a.grade}/5
                         </p>
                     </div>
                     <div>
@@ -158,7 +192,7 @@
                     ` : ''}
                     ${a.feedbackComment ? `
                     <div style="grid-column:1/-1">
-                        <strong>Comment</strong>
+                        <strong>Teacher Comment</strong>
                         <p style="color:var(--color-text-secondary)">
                             ${a.feedbackComment}
                         </p>
@@ -167,13 +201,67 @@
                 </div>
             `;
 
-            // Load all assignments with same title for teacher view
+            // Handle student view
+            if (role === 'STUDENT') {
+                handleStudentView(a);
+            }
+
+            // Handle teacher view
             if (role === 'TEACHER') {
-                await loadStudentSubmissions(a.title, a.teacherId, token);
+                await loadStudentSubmissions(
+                    a.title, a.teacherId, token);
             }
 
         } catch (err) {
             console.error('Error loading assignment:', err);
+        }
+    }
+
+    function handleStudentView(assignment) {
+        if (assignment.status === 'ACTIVE') {
+            // Show submit form
+            document.getElementById('submit-card').style.display = 'block';
+        } else {
+            // Show submission info
+            document.getElementById('submitted-card').style.display = 'block';
+            let html = '';
+
+            if (assignment.submissionComment) {
+                html += `
+                    <div style="padding:1rem;
+                                background:var(--color-background-secondary);
+                                border-radius:8px;margin-bottom:1rem">
+                        <strong>Your comment:</strong>
+                        <p style="color:var(--color-text-secondary);
+                                  margin-top:0.5rem">
+                            ${assignment.submissionComment}
+                        </p>
+                    </div>`;
+            }
+
+            if (assignment.status === 'GRADED') {
+                html += `
+                    <div style="padding:1rem;background:#d5f5e3;
+                                border-radius:8px">
+                        <strong style="color:#1e8449">
+                            Grade: ${assignment.grade}/5
+                        </strong>
+                        ${assignment.feedbackCategory ? `
+                        <p style="color:#1e8449;margin-top:0.5rem">
+                            Category: ${assignment.feedbackCategory}
+                        </p>` : ''}
+                        ${assignment.feedbackComment ? `
+                        <p style="color:#1e8449;margin-top:0.5rem">
+                            Teacher comment: ${assignment.feedbackComment}
+                        </p>` : ''}
+                    </div>`;
+            } else {
+                html += `<p style="color:#777">
+                    Waiting for teacher to grade...
+                </p>`;
+            }
+
+            document.getElementById('submission-info').innerHTML = html;
         }
     }
 
@@ -195,19 +283,22 @@
                 .style.display = 'block';
 
             let html = '<table><thead><tr>' +
-                '<th>Student ID</th>' +
+                '<th>Student</th>' +
                 '<th>Status</th>' +
+                '<th>Comment</th>' +
                 '<th>Grade</th>' +
-                '<th>Feedback</th>' +
                 '<th>Action</th>' +
                 '</tr></thead><tbody>';
 
             related.forEach(a => {
-                const statusClass = a.status === 'GRADED'
-                    ? 'badge-graded' : 'badge-active';
+                const statusClass = {
+                    'ACTIVE': 'badge-active',
+                    'SUBMITTED': 'badge-graded',
+                    'GRADED': 'badge-graded'
+                }[a.status] || 'badge-active';
 
                 html += `<tr>
-                    <td style="font-size:0.8rem;color:#777">
+                    <td style="font-size:0.85rem;color:#777">
                         ${a.studentId.substring(0, 8)}...
                     </td>
                     <td>
@@ -215,16 +306,21 @@
                             ${a.status}
                         </span>
                     </td>
+                    <td style="font-size:0.85rem;color:#777;max-width:200px">
+                        ${a.submissionComment
+                    ? a.submissionComment.substring(0, 50) +
+                    (a.submissionComment.length > 50 ? '...' : '')
+                    : '—'}
+                    </td>
                     <td>${a.grade ? a.grade + '/5' : '—'}</td>
-                    <td>${a.feedbackCategory || '—'}</td>
                     <td>
                         ${a.status !== 'GRADED' ? `
                         <button class="btn btn-primary"
-                                style="font-size:0.8rem;padding:0.3rem 0.8rem"
-                                onclick="openGradeForm('${a.id}',
-                                         '${a.studentId}')">
-                            Grade
-                        </button>` : '✅'}
+                            style="font-size:0.8rem;padding:0.3rem 0.8rem"
+                            onclick="openGradeForm(
+                                '${a.id}', '${a.studentId}')">
+                            ✏️ Grade
+                        </button>` : '✅ Graded'}
                     </td>
                 </tr>`;
             });
@@ -244,6 +340,48 @@
         document.getElementById('grading-student').textContent =
             `Grading student: ${studentId.substring(0, 8)}...`;
         gradeCard.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function setupSubmitForm() {
+        const submitForm = document.getElementById('submit-form');
+        if (!submitForm) return;
+
+        submitForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const token = await getToken();
+            const assignmentId =
+                window.location.pathname.split('/').pop();
+            const result = document.getElementById('submit-result');
+
+            result.innerHTML = `<div class="alert"
+                style="background:#eaf4fb;color:#1a5276;
+                       border:1px solid #aed6f1">
+                Submitting...
+            </div>`;
+
+            const res = await fetch(
+                `/api/assignments/${assignmentId}/submit`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({
+                        comment: document.getElementById('submitComment').value
+                    })
+                });
+
+            if (res.ok) {
+                result.innerHTML = `<div class="alert alert-success">
+                    ✅ Assignment submitted successfully!
+                </div>`;
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                result.innerHTML =
+                    '<div class="alert alert-error">' +
+                    'Failed to submit</div>';
+            }
+        });
     }
 
     async function setupGradeForm() {
@@ -274,18 +412,21 @@
 
             const result = document.getElementById('grade-result');
             if (res.ok) {
-                result.innerHTML =
-                    '<div class="alert alert-success">✅ Grade saved!</div>';
+                result.innerHTML = `<div class="alert alert-success">
+                    ✅ Grade saved!
+                </div>`;
                 setTimeout(() => location.reload(), 1500);
             } else {
                 result.innerHTML =
-                    '<div class="alert alert-error">Failed to save</div>';
+                    '<div class="alert alert-error">' +
+                    'Failed to save grade</div>';
             }
         });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
         loadAssignment();
+        setupSubmitForm();
         setupGradeForm();
     });
     /*]]>*/
