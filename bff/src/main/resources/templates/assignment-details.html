@@ -1,10 +1,160 @@
 <!DOCTYPE html>
-<html lang="en">
+<html xmlns:th="http://www.thymeleaf.org">
 <head>
-  <meta charset="UTF-8">
-  <title>$Title$</title>
+    <meta charset="UTF-8">
+    <title>Assignment — Academic Platform</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
 </head>
 <body>
-$END$
+
+<nav>
+    <div>
+        <a href="/dashboard">🏠 Home</a>
+        <a href="/students">👥 Students</a>
+        <a href="/attendance">📋 Attendance</a>
+        <a href="/assignments">📝 Assignments</a>
+    </div>
+    <div class="nav-right">
+        <span th:text="${username}"></span> |
+        <a href="/logout" style="color:#e74c3c">Logout</a>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="card">
+        <a href="/assignments"
+           style="color:#3498db;text-decoration:none">
+            ← Back to assignments
+        </a>
+    </div>
+
+    <div class="card" id="assignment-card">
+        Loading...
+    </div>
+
+    <!-- Grade form - teachers only -->
+    <div class="card" th:if="${role == 'TEACHER'}" id="grade-card">
+        <h2>✏️ Grade Assignment</h2>
+        <div id="grade-result"></div>
+        <form id="grade-form">
+            <div class="form-group">
+                <label>Grade (1-5)</label>
+                <select id="grade">
+                    <option value="1">1 — Needs improvement</option>
+                    <option value="2">2 — Below expectations</option>
+                    <option value="3">3 — Meets expectations</option>
+                    <option value="4" selected>4 — Above expectations</option>
+                    <option value="5">5 — Excellent</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Feedback Category</label>
+                <select id="feedbackCategory">
+                    <option value="DOCUMENTATION">Documentation</option>
+                    <option value="CONSTRUCTION">Construction</option>
+                    <option value="INDUSTRIALIZATION">Industrialization</option>
+                    <option value="FITTING">Fitting</option>
+                    <option value="COMMUNICATION">Communication</option>
+                    <option value="TIME_MANAGEMENT">Time Management</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Comment</label>
+                <textarea id="feedbackComment" rows="3"
+                          placeholder="Additional feedback..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Grade</button>
+        </form>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    const assignmentJson = /*[[${assignmentJson}]]*/ 'null';
+    const role = /*[[${role}]]*/ '';
+
+    async function getToken() {
+        const res = await fetch('/api/session/token');
+        const data = await res.json();
+        return data.token;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        try {
+            const a = JSON.parse(assignmentJson);
+            if (!a) return;
+
+            const statusClass = a.status === 'GRADED'
+                ? 'badge-graded' : 'badge-active';
+
+            document.getElementById('assignment-card').innerHTML = `
+                <h1>📝 ${a.title}</h1>
+                <p style="color:#777;margin-bottom:1rem">
+                    <span class="badge ${statusClass}">${a.status}</span>
+                </p>
+                <div style="margin-bottom:1rem">
+                    <strong>Description:</strong>
+                    <p style="margin-top:0.5rem">${a.description || 'No description'}</p>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+                    <div><strong>Deadline:</strong> ${a.deadline}</div>
+                    <div><strong>Student ID:</strong> ${a.studentId}</div>
+                    ${a.grade ? `
+                    <div><strong>Grade:</strong> ${a.grade}/5</div>
+                    <div><strong>Feedback:</strong> ${a.feedbackCategory || '—'}</div>
+                    ` : ''}
+                    ${a.feedbackComment ? `
+                    <div style="grid-column:1/-1">
+                        <strong>Comment:</strong> ${a.feedbackComment}
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+
+            // Hide grade form if already graded
+            if (a.status === 'GRADED') {
+                const gradeCard = document.getElementById('grade-card');
+                if (gradeCard) gradeCard.style.display = 'none';
+            }
+
+        } catch (err) {
+            console.error('Error:', err);
+        }
+
+        // Grade form
+        const gradeForm = document.getElementById('grade-form');
+        if (!gradeForm) return;
+
+        gradeForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const token = await getToken();
+            const assignmentId = window.location.pathname.split('/').pop();
+
+            const res = await fetch(`/api/assignments/${assignmentId}/grade`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify({
+                    grade: parseInt(document.getElementById('grade').value),
+                    feedbackCategory: document.getElementById('feedbackCategory').value,
+                    feedbackComment: document.getElementById('feedbackComment').value
+                })
+            });
+
+            const result = document.getElementById('grade-result');
+            if (res.ok) {
+                result.innerHTML =
+                    '<div class="alert alert-success">✅ Grade saved!</div>';
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                result.innerHTML =
+                    '<div class="alert alert-error">Failed to save grade</div>';
+            }
+        });
+    });
+    /*]]>*/
+</script>
 </body>
 </html>

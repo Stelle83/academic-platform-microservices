@@ -138,6 +138,30 @@ public class WebController {
         return "assignments";
     }
 
+    @GetMapping("/assignments/{assignmentId}")
+    public String assignmentDetail(
+            @PathVariable String assignmentId,
+            HttpSession session,
+            Model model) {
+        if (session.getAttribute("token") == null) {
+            return "redirect:/login";
+        }
+        String token = (String) session.getAttribute("token");
+
+        try {
+            var response = bffProxy.forwardWithToken(
+                    "GET", "/api/assignments/" + assignmentId, null, token);
+            model.addAttribute("assignmentJson", response.getBody());
+        } catch (Exception e) {
+            model.addAttribute("error", "Could not load assignment");
+        }
+
+        model.addAttribute("role", session.getAttribute("role"));
+        model.addAttribute("userId", session.getAttribute("userId"));
+        model.addAttribute("username", session.getAttribute("username"));
+        return "assignment-detail";
+    }
+
     @GetMapping("/logout")
     public String logout(HttpSession session) {
         session.invalidate();

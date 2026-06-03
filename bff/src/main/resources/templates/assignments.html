@@ -23,8 +23,9 @@
 
     <!-- Create form - teachers only -->
     <div class="card" th:if="${role == 'TEACHER'}">
-        <h2>➕ Create Assignment</h2>
+        <h2>➕ Create Assignment for All Students</h2>
         <div id="create-result"></div>
+
         <form id="create-form">
             <div class="form-group">
                 <label>Title</label>
@@ -35,14 +36,18 @@
                 <textarea id="description" rows="3"></textarea>
             </div>
             <div class="form-group">
-                <label>Student ID</label>
-                <input type="text" id="studentId" required>
-            </div>
-            <div class="form-group">
                 <label>Deadline</label>
                 <input type="date" id="deadline" required>
             </div>
-            <button type="submit" class="btn btn-success">Create</button>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="sendReminder" checked>
+                    Send email reminder to students
+                </label>
+            </div>
+            <button type="submit" class="btn btn-success">
+                📤 Assign to All Students
+            </button>
         </form>
     </div>
 
@@ -90,13 +95,15 @@
                 '<th>Title</th><th>Deadline</th><th>Status</th><th>Grade</th>' +
                 '</tr></thead><tbody>';
             assignments.forEach(a => {
-                const statusClass = a.status === 'GRADED' ? 'badge-graded' : 'badge-active';
-                html += `<tr>
-                    <td>${a.title}</td>
-                    <td>${a.deadline}</td>
-                    <td><span class="badge ${statusClass}">${a.status}</span></td>
-                    <td>${a.grade || '—'}</td>
-                </tr>`;
+                const statusClass = a.status === 'GRADED'
+                    ? 'badge-graded' : 'badge-active';
+                html += `<tr style="cursor:pointer"
+                onclick="window.location='/assignments/${a.id}'">
+        <td>${a.title}</td>
+        <td>${a.deadline}</td>
+        <td><span class="badge ${statusClass}">${a.status}</span></td>
+        <td>${a.grade ? a.grade + '/5' : '—'}</td>
+    </tr>`;
             });
             html += '</tbody></table>';
             list.innerHTML = html;
@@ -114,29 +121,62 @@
         createForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const token = await getToken();
-            const body = {
-                title: document.getElementById('title').value,
-                description: document.getElementById('description').value,
-                studentId: document.getElementById('studentId').value,
-                deadline: document.getElementById('deadline').value,
-                sendReminder: true
-            };
+            const result = document.getElementById('create-result');
 
-            const res = await fetch('/api/assignments', {
+            result.innerHTML = '<div class="alert" style="background:#eaf4fb;' +
+                'color:#1a5276;border:1px solid #aed6f1">Fetching students...</div>';
+
+            // Step 1 — get all students for this teacher
+            const studentsRes = await fetch(
+                `/api/students/teacher/${userId}`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+
+            if (!studentsRes.ok) {
+                result.innerHTML =
+                    '<div class="alert alert-error">Could not fetch students</div>';
+                return;
+            }
+
+            const students = await studentsRes.json();
+
+            if (students.length === 0) {
+                result.innerHTML =
+                    '<div class="alert alert-error">No students found!</div>';
+                return;
+            }
+
+            const studentIds = students.map(s => s.id);
+
+            result.innerHTML = `<div class="alert" style="background:#eaf4fb;
+            color:#1a5276;border:1px solid #aed6f1">
+            Creating assignment for ${studentIds.length} students...
+        </div>`;
+
+            // Step 2 — create assignment for all
+            const res = await fetch('/api/assignments/all', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': 'Bearer ' + token
                 },
-                body: JSON.stringify(body)
+                body: JSON.stringify({
+                    title: document.getElementById('title').value,
+                    description: document.getElementById('description').value,
+                    deadline: document.getElementById('deadline').value,
+                    sendReminder: document.getElementById('sendReminder').checked,
+                    studentIds: studentIds
+                })
             });
 
-            const result = document.getElementById('create-result');
             if (res.ok) {
-                result.innerHTML = '<div class="alert alert-success">Assignment created!</div>';
+                result.innerHTML = `<div class="alert alert-success">
+                ✅ Assignment created for ${studentIds.length} students!
+            </div>`;
                 setTimeout(() => location.reload(), 1500);
             } else {
-                result.innerHTML = `<div class="alert alert-error">Failed: ${res.status}</div>`;
+                result.innerHTML =
+                    '<div class="alert alert-error">Failed to create assignment</div>';
             }
         });
     }
