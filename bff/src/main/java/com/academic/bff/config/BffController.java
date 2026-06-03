@@ -110,6 +110,13 @@ public class BffController {
                 getUserId(request));
     }
 
+    @GetMapping("/api/notifications/**")
+    public ResponseEntity<String> notificationGet(
+            HttpServletRequest request) {
+        return bffProxy.forwardToNotification(
+                "GET", getPath(request), null, getUserId(request));
+    }
+
     @GetMapping("/api/session/token")
     @ResponseBody
     public ResponseEntity<String> getSessionToken(HttpSession session) {

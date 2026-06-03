@@ -15,17 +15,27 @@ public class BffProxy {
     private final RestClient studentClient;
     private final RestClient attendanceClient;
     private final RestClient assignmentClient;
+    private final RestClient notificationClient;
+
 
     public BffProxy(
             @Qualifier("authClient") RestClient authClient,
             @Qualifier("studentClient") RestClient studentClient,
             @Qualifier("attendanceClient") RestClient attendanceClient,
-            @Qualifier("assignmentClient") RestClient assignmentClient) {
+            @Qualifier("assignmentClient") RestClient assignmentClient,
+            @Qualifier("notificationClient") RestClient notificationClient) {
         this.authClient = authClient;
         this.studentClient = studentClient;
         this.attendanceClient = attendanceClient;
         this.assignmentClient = assignmentClient;
+        this.notificationClient = notificationClient;
     }
+
+    public ResponseEntity<String> forwardToNotification(
+            String method, String path, String body, String userId) {
+        return forward(notificationClient, method, path, body, userId);
+    }
+
 
     public ResponseEntity<String> forwardWithToken(
             String method, String path, String body, String token) {
@@ -35,6 +45,7 @@ public class BffProxy {
         if (path.startsWith("/api/students")) client = studentClient;
         else if (path.startsWith("/api/attendance")) client = attendanceClient;
         else if (path.startsWith("/api/assignments")) client = assignmentClient;
+        else if (path.startsWith("/api/notifications")) client = notificationClient;
         else client = authClient;
 
         try {

@@ -9,4 +9,6 @@ import java.util.List;
 public interface NotificationLogRepository extends JpaRepository<NotificationLog, String> {
     List<NotificationLog> findByRecipientId(String recipientId);
     List<NotificationLog> findByType(NotificationLog.NotificationType type);
+    List<NotificationLog> findByRecipientIdOrderBySentAtDesc(String recipientId);
+    List<NotificationLog> findTop10ByOrderBySentAtDesc();
 }

@@ -47,4 +47,14 @@ public class RestClientConfig {
                 .baseUrl(assignmentUrl)
                 .build();
     }
+
+    @Value("${services.notification-url}")
+    private String notificationUrl;
+
+    @Bean("notificationClient")
+    public RestClient notificationClient() {
+        return RestClient.builder()
+                .baseUrl(notificationUrl)
+                .build();
+    }
 }

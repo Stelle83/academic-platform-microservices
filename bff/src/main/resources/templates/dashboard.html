@@ -22,7 +22,7 @@
 
 <div class="container">
 
-    <!-- Student Profile + Attendance -->
+    <!-- Student Dashboard -->
     <div th:if="${role == 'STUDENT'}">
         <div class="card" id="profile-card">
             <p style="color:#777">Loading profile...</p>
@@ -30,15 +30,40 @@
         <div class="card" id="attendance-card">
             <p style="color:#777">Loading attendance...</p>
         </div>
+        <div class="card" id="notifications-card">
+            <h2>🔔 Recent Notifications</h2>
+            <div id="notifications-list">
+                <p style="color:#777">Loading...</p>
+            </div>
+        </div>
     </div>
 
     <!-- Teacher Dashboard -->
     <div th:if="${role == 'TEACHER'}">
         <div class="card">
-            <h1>Welcome back, <span th:text="${username}"></span>! 👋</h1>
+            <h1>Welcome back,
+                <span th:text="${username}"></span>! 👋
+            </h1>
             <p style="color:#777">Role: <strong>Teacher</strong></p>
         </div>
-        <div class="dashboard-grid">
+
+        <!-- Quick stats -->
+        <div class="card" id="stats-card">
+            <h2>📊 Overview</h2>
+            <div id="stats-content">
+                <p style="color:#777">Loading...</p>
+            </div>
+        </div>
+
+        <!-- Recent submissions -->
+        <div class="card" id="submissions-card">
+            <h2>📥 Recent Submissions</h2>
+            <div id="submissions-content">
+                <p style="color:#777">Loading...</p>
+            </div>
+        </div>
+
+        <div class="dashboard-grid" style="margin-top:1rem">
             <a href="/students" class="dashboard-card">
                 <div class="icon">👥</div>
                 <h3>Students</h3>
@@ -67,38 +92,48 @@
         return data.token;
     }
 
+    // ── Student Dashboard ──────────────────────────────────
+
     async function loadStudentDashboard() {
         if (role !== 'STUDENT') return;
         const token = await getToken();
 
+        await Promise.all([
+            loadStudentProfile(token),
+            loadAttendanceStats(token),
+            loadStudentNotifications(token)
+        ]);
+    }
+
+    async function loadStudentProfile(token) {
         try {
-            // Load student profile
-            const profileRes = await fetch(`/api/students/${userId}`, {
+            const res = await fetch(`/api/students/${userId}`, {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
 
-            if (profileRes.ok) {
-                const student = await profileRes.json();
+            if (res.ok) {
+                const s = await res.json();
                 document.getElementById('profile-card').innerHTML = `
-                    <h1>👋 Welcome, ${student.fullName}!</h1>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;
+                    <h1>👋 Welcome, ${s.fullName}!</h1>
+                    <div style="display:grid;
+                                grid-template-columns:1fr 1fr;
                                 gap:1rem;margin-top:1rem">
                         <div>
                             <strong>Full Name</strong>
                             <p style="color:var(--color-text-secondary)">
-                                ${student.fullName}
+                                ${s.fullName}
                             </p>
                         </div>
                         <div>
                             <strong>Username</strong>
                             <p style="color:var(--color-text-secondary)">
-                                ${student.username}
+                                ${s.username}
                             </p>
                         </div>
                         <div>
                             <strong>Email</strong>
                             <p style="color:var(--color-text-secondary)">
-                                ${student.email}
+                                ${s.email}
                             </p>
                         </div>
                         <div>
@@ -109,16 +144,24 @@
                         </div>
                     </div>
                 `;
+            } else {
+                document.getElementById('profile-card').innerHTML =
+                    '<h1>👋 Welcome!</h1>';
             }
+        } catch (err) {
+            console.error('Profile error:', err);
+        }
+    }
 
-            // Load attendance stats
-            const statsRes = await fetch(
+    async function loadAttendanceStats(token) {
+        try {
+            const res = await fetch(
                 `/api/attendance/student/${userId}/stats`, {
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
 
-            if (statsRes.ok) {
-                const stats = await statsRes.json();
+            if (res.ok) {
+                const stats = await res.json();
                 const pct = stats.attendancePercentage;
                 const color = pct >= 80 ? '#1e8449'
                     : pct >= 60 ? '#854f0b'
@@ -131,7 +174,7 @@
                     <h2>📋 My Attendance</h2>
                     <div style="display:grid;
                                 grid-template-columns:repeat(auto-fit,
-                                minmax(120px,1fr));gap:1rem;margin-top:1rem">
+                                minmax(110px,1fr));gap:1rem;margin-top:1rem">
                         <div style="text-align:center;padding:1rem;
                                     background:${bg};border-radius:8px">
                             <div style="font-size:2rem;font-weight:500;
@@ -139,7 +182,7 @@
                                 ${pct}%
                             </div>
                             <div style="font-size:0.8rem;color:#555">
-                                Attendance Rate
+                                Attendance
                             </div>
                         </div>
                         <div style="text-align:center;padding:1rem;
@@ -186,7 +229,7 @@
                     ${stats.absentCount >= 3 ? `
                     <div class="alert alert-error" style="margin-top:1rem">
                         ⚠️ Warning: You have ${stats.absentCount} absences.
-                        Please contact your teacher.
+                        Please contact your teacher!
                     </div>` : ''}
                 `;
             } else {
@@ -195,13 +238,243 @@
                     <p style="color:#777">No attendance records yet.</p>
                 `;
             }
-
         } catch (err) {
-            console.error('Error loading student dashboard:', err);
+            console.error('Attendance error:', err);
         }
     }
 
-    document.addEventListener('DOMContentLoaded', loadStudentDashboard);
+    async function loadStudentNotifications(token) {
+        try {
+            const res = await fetch(
+                `/api/notifications/student/${userId}`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+
+            const list = document.getElementById('notifications-list');
+
+            if (!res.ok) {
+                list.innerHTML =
+                    '<p style="color:#777">No notifications yet.</p>';
+                return;
+            }
+
+            const notifications = await res.json();
+
+            if (notifications.length === 0) {
+                list.innerHTML =
+                    '<p style="color:#777">No notifications yet.</p>';
+                return;
+            }
+
+            const icons = {
+                'ASSIGNMENT_REMINDER': '📝',
+                'ASSIGNMENT_GRADED': '⭐',
+                'ATTENDANCE_WARNING': '⚠️'
+            };
+
+            const colors = {
+                'ASSIGNMENT_REMINDER': '#eaf4fb',
+                'ASSIGNMENT_GRADED': '#d5f5e3',
+                'ATTENDANCE_WARNING': '#fdecea'
+            };
+
+            let html = '';
+            notifications.slice(0, 5).forEach(n => {
+                const icon = icons[n.type] || '🔔';
+                const bg = colors[n.type] || '#f8f9fa';
+                const date = new Date(n.sentAt)
+                    .toLocaleDateString('sv-SE');
+
+                html += `
+                    <div style="padding:1rem;background:${bg};
+                                border-radius:8px;margin-bottom:0.75rem;
+                                border-left:4px solid
+                                ${n.success ? '#27ae60' : '#e74c3c'}">
+                        <div style="display:flex;justify-content:space-between;
+                                    align-items:center">
+                            <strong>${icon} ${n.subject}</strong>
+                            <span style="font-size:0.8rem;color:#777">
+                                ${date}
+                            </span>
+                        </div>
+                        <p style="font-size:0.85rem;color:#555;
+                                  margin-top:0.25rem">
+                            ${n.type.replace(/_/g, ' ')}
+                        </p>
+                    </div>
+                `;
+            });
+
+            list.innerHTML = html;
+
+        } catch (err) {
+            console.error('Notifications error:', err);
+            document.getElementById('notifications-list').innerHTML =
+                '<p style="color:#777">Could not load notifications.</p>';
+        }
+    }
+
+    // ── Teacher Dashboard ──────────────────────────────────
+
+    async function loadTeacherDashboard() {
+        if (role !== 'TEACHER') return;
+        const token = await getToken();
+
+        await Promise.all([
+            loadTeacherStats(token),
+            loadRecentSubmissions(token)
+        ]);
+    }
+
+    async function loadTeacherStats(token) {
+        try {
+            const [studentsRes, assignmentsRes] = await Promise.all([
+                fetch(`/api/students/teacher/${userId}`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                }),
+                fetch(`/api/assignments/teacher/${userId}`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                })
+            ]);
+
+            const students = studentsRes.ok
+                ? await studentsRes.json() : [];
+            const assignments = assignmentsRes.ok
+                ? await assignmentsRes.json() : [];
+
+            const pending = assignments.filter(
+                a => a.status === 'SUBMITTED').length;
+            const graded = assignments.filter(
+                a => a.status === 'GRADED').length;
+            const active = assignments.filter(
+                a => a.status === 'ACTIVE').length;
+
+            document.getElementById('stats-content').innerHTML = `
+                <div style="display:grid;
+                            grid-template-columns:repeat(auto-fit,
+                            minmax(130px,1fr));gap:1rem">
+                    <div style="text-align:center;padding:1rem;
+                                background:#eaf4fb;border-radius:8px">
+                        <div style="font-size:2rem;font-weight:500;
+                                    color:#1a5276">
+                            ${students.length}
+                        </div>
+                        <div style="font-size:0.85rem;color:#555">
+                            👥 Students
+                        </div>
+                    </div>
+                    <div style="text-align:center;padding:1rem;
+                                background:#faeeda;border-radius:8px">
+                        <div style="font-size:2rem;font-weight:500;
+                                    color:#854f0b">
+                            ${pending}
+                        </div>
+                        <div style="font-size:0.85rem;color:#555">
+                            📥 Pending Grades
+                        </div>
+                    </div>
+                    <div style="text-align:center;padding:1rem;
+                                background:#d5f5e3;border-radius:8px">
+                        <div style="font-size:2rem;font-weight:500;
+                                    color:#1e8449">
+                            ${graded}
+                        </div>
+                        <div style="font-size:0.85rem;color:#555">
+                            ✅ Graded
+                        </div>
+                    </div>
+                    <div style="text-align:center;padding:1rem;
+                                background:#f8f9fa;border-radius:8px">
+                        <div style="font-size:2rem;font-weight:500;
+                                    color:#555">
+                            ${active}
+                        </div>
+                        <div style="font-size:0.85rem;color:#555">
+                            📝 Active
+                        </div>
+                    </div>
+                </div>
+            `;
+        } catch (err) {
+            console.error('Stats error:', err);
+        }
+    }
+
+    async function loadRecentSubmissions(token) {
+        try {
+            const res = await fetch(
+                `/api/assignments/teacher/${userId}`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+
+            const content =
+                document.getElementById('submissions-content');
+
+            if (!res.ok) {
+                content.innerHTML =
+                    '<p style="color:#777">No submissions yet.</p>';
+                return;
+            }
+
+            const assignments = await res.json();
+            const submitted = assignments.filter(
+                a => a.status === 'SUBMITTED');
+
+            if (submitted.length === 0) {
+                content.innerHTML = `
+                    <p style="color:#777">
+                        No pending submissions — all caught up! ✅
+                    </p>`;
+                return;
+            }
+
+            let html = '<table><thead><tr>' +
+                '<th>Assignment</th>' +
+                '<th>Student</th>' +
+                '<th>Comment</th>' +
+                '<th>Action</th>' +
+                '</tr></thead><tbody>';
+
+            submitted.forEach(a => {
+                html += `<tr>
+                    <td>${a.title}</td>
+                    <td style="font-size:0.85rem;color:#777">
+                        ${a.studentId.substring(0, 8)}...
+                    </td>
+                    <td style="font-size:0.85rem;color:#777;
+                               max-width:180px">
+                        ${a.submissionComment
+                    ? a.submissionComment.substring(0, 40) +
+                    (a.submissionComment.length > 40
+                        ? '...' : '')
+                    : '—'}
+                    </td>
+                    <td>
+                        <a href="/assignments/${a.id}"
+                           class="btn btn-primary"
+                           style="font-size:0.8rem;padding:0.3rem 0.8rem;
+                                  text-decoration:none">
+                            ✏️ Grade
+                        </a>
+                    </td>
+                </tr>`;
+            });
+
+            html += '</tbody></table>';
+            content.innerHTML = html;
+
+        } catch (err) {
+            console.error('Submissions error:', err);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        if (role === 'STUDENT') {
+            loadStudentDashboard();
+        } else {
+            loadTeacherDashboard();
+        }
+    });
     /*]]>*/
 </script>
 </body>
