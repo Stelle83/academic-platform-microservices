@@ -85,7 +85,9 @@ public class BffProxy {
             String body,
             String userId) {
 
-        log.info("Forwarding {} {} userId={}", method, path, userId);
+//        log.info("Forwarding {} {} userId={}", method, path, userId);
+        log.info("Forwarding {} {} body={} userId={}", method, path, body, userId);
+
 
         try {
             RestClient.RequestBodySpec requestSpec = client
@@ -110,4 +112,5 @@ public class BffProxy {
             return ResponseEntity.status(502).body("{\"error\":\"Service unavailable\"}");
         }
     }
+
 }

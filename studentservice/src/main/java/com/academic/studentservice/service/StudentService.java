@@ -15,7 +15,13 @@ public class StudentService {
 
     private final StudentRepository studentRepository;
 
-    public StudentResponse createStudent(String userId, StudentRequest request) {
+    public StudentResponse createStudent(String headerUserId, StudentRequest request) {
+
+        // Use ID from body if provided, otherwise fall back to header
+        String studentId = (request.getId() != null && !request.getId().isEmpty())
+                ? request.getId()
+                : headerUserId;
+
         if (studentRepository.existsByUsername(request.getUsername())) {
             throw new RuntimeException("Username already exists");
         }
@@ -24,7 +30,7 @@ public class StudentService {
         }
 
         Student student = Student.builder()
-                .id(userId)
+                .id(studentId)
                 .username(request.getUsername())
                 .email(request.getEmail())
                 .fullName(request.getFullName())

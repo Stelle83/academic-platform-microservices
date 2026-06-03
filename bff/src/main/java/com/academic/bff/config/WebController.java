@@ -81,6 +81,9 @@ public class WebController {
         String token = (String) session.getAttribute("token");
         String teacherId = (String) session.getAttribute("userId");
 
+        model.addAttribute("userId", teacherId);
+        model.addAttribute("role", session.getAttribute("role"));
+
         try {
             var response = bffProxy.forwardWithToken(
                     "GET",
@@ -89,10 +92,11 @@ public class WebController {
             model.addAttribute("studentsJson", response.getBody());
         } catch (Exception e) {
             model.addAttribute("error", "Could not load students");
+            model.addAttribute("studentsJson", "[]");
         }
 
-        model.addAttribute("role", session.getAttribute("role"));
-        model.addAttribute("teacherId", teacherId);
+//        model.addAttribute("role", session.getAttribute("role"));
+//        model.addAttribute("teacherId", teacherId);
         return "students";
     }
 

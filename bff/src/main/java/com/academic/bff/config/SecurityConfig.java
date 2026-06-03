@@ -32,7 +32,8 @@ public class SecurityConfig {
                                 "/logout",
                                 "/css/**",
                                 "/js/**",
-                                "/api/auth/**"
+                                "/api/auth/**",
+                                "/api/session/token"
                         ).permitAll()
                         .anyRequest().permitAll()
                 )

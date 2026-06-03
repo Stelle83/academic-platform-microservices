@@ -21,6 +21,14 @@ public class BffController {
         return bffProxy.forwardToAuth("POST", getPath(request), body);
     }
 
+    // ── Register a Student ───────────────────────────────────────────
+    @PostMapping("/api/auth/register")
+    public ResponseEntity<String> authRegisterPost(
+            HttpServletRequest request,
+            @RequestBody(required = false) String body) {
+        return bffProxy.forwardToAuth("POST", "/api/auth/register", body);
+    }
+
     // ── Students ───────────────────────────────────────────
     @PostMapping("/api/students/**")
     public ResponseEntity<String> studentPost(

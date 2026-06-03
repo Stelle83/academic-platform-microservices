@@ -15,42 +15,185 @@
         <a href="/assignments">📝 Assignments</a>
     </div>
     <div class="nav-right">
+        <span th:text="${username}"></span> |
         <a href="/logout" style="color:#e74c3c">Logout</a>
     </div>
 </nav>
 
 <div class="container">
+
+    <!-- Create Student Form - teachers only -->
+    <div class="card" th:if="${role == 'TEACHER'}">
+        <h2>➕ Register New Student</h2>
+        <div id="create-result"></div>
+
+        <form id="create-form">
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" id="fullName" placeholder="Anna Svensson" required>
+            </div>
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="username" placeholder="anna.svensson" required>
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="email" placeholder="anna@school.se" required>
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="password" placeholder="Temporary password" required>
+            </div>
+            <button type="submit" class="btn btn-success">Register Student</button>
+        </form>
+    </div>
+
+    <!-- Students List -->
     <div class="card">
-        <h1>👥 Students</h1>
+        <h1>👥 My Students</h1>
         <div th:if="${error}" class="alert alert-error" th:text="${error}"></div>
         <div id="students-list">Loading...</div>
     </div>
+
 </div>
 
 <script th:inline="javascript">
-    const data = [[${studentsJson}]];
-    const students = JSON.parse(data || '[]');
-    const list = document.getElementById('students-list');
+    /*<![CDATA[*/
+    const studentsJson = /*[[${studentsJson}]]*/ '[]';
+    const role = /*[[${role}]]*/ '';
+    const teacherId = /*[[${userId}]]*/ '';
 
-    if (students.length === 0) {
-        list.innerHTML = '<p style="color:#777">No students found.</p>';
-    } else {
-        let html = '<table><thead><tr>' +
-            '<th>Full Name</th><th>Username</th><th>Email</th><th>Actions</th>' +
-            '</tr></thead><tbody>';
-        students.forEach(s => {
-            html += `<tr>
-                <td>${s.fullName}</td>
-                <td>${s.username}</td>
-                <td>${s.email}</td>
-                <td>
-                    <a href="/attendance?studentId=${s.id}">Record Attendance</a>
-                </td>
-            </tr>`;
-        });
-        html += '</tbody></table>';
-        list.innerHTML = html;
+    console.log('studentsJson:', studentsJson);
+
+    async function getToken() {
+        const res = await fetch('/api/session/token');
+        const data = await res.json();
+        return data.token;
     }
+
+    async function loadStudents() {
+        const list = document.getElementById('students-list');
+        if (!list) return;
+
+        try {
+            const students = JSON.parse(studentsJson || '[]');
+            console.log('Parsed students:', students);
+
+            if (students.length === 0) {
+                list.innerHTML = '<p style="color:#777">No students found. Register your first student above!</p>';
+                return;
+            }
+
+            let html = '<table><thead><tr>' +
+                '<th>Full Name</th>' +
+                '<th>Username</th>' +
+                '<th>Email</th>' +
+                '<th>Actions</th>' +
+                '</tr></thead><tbody>';
+
+            students.forEach(s => {
+                html += `<tr>
+                    <td>${s.fullName}</td>
+                    <td>${s.username}</td>
+                    <td>${s.email}</td>
+                    <td style="display:flex;gap:8px">
+                        <a href="/attendance?studentId=${s.id}"
+                           style="color:#3498db;text-decoration:none">
+                           📋 Attendance
+                        </a>
+                        <a href="/assignments?studentId=${s.id}"
+                           style="color:#27ae60;text-decoration:none">
+                           📝 Assignments
+                        </a>
+                    </td>
+                </tr>`;
+            });
+
+            html += '</tbody></table>';
+            list.innerHTML = html;
+
+        } catch (err) {
+            console.error('Parse error:', err);
+            list.innerHTML = '<p style="color:#c0392b">Error loading students.</p>';
+        }
+    }
+
+    async function setupCreateForm() {
+        const form = document.getElementById('create-form');
+        if (!form) return;
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const token = await getToken();
+            const result = document.getElementById('create-result');
+
+            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const fullName = document.getElementById('fullName').value;
+
+            // Step 1 — Register in Auth Service
+            result.innerHTML = '<div class="alert" style="background:#eaf4fb;color:#1a5276;border:1px solid #aed6f1">Registering account...</div>';
+
+            //
+
+            const authRes = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: username,
+                    email: email,
+                    password: password,
+                    role: 'STUDENT'
+                })
+            });
+
+            if (!authRes.ok) {
+                const err = await authRes.text();
+                result.innerHTML = `<div class="alert alert-error">Registration failed: ${authRes.status}</div>`;
+                return;
+            }
+
+            const authData = await authRes.json();
+            console.log('FULL auth response:', JSON.stringify(authData));
+            console.log('studentUserId:', authData.userId);
+            const studentUserId = authData.userId;
+
+            // Step 2 — Create student profile in Student Service
+            result.innerHTML = '<div class="alert" style="background:#eaf4fb;color:#1a5276;border:1px solid #aed6f1">Creating student profile...</div>';
+
+            const studentRes = await fetch('/api/students', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token,
+                    'X-Student-Id': studentUserId  // ← pass student's ID separately!
+                },
+                body: JSON.stringify({
+                    id: studentUserId,
+                    username: username,
+                    email: email,
+                    fullName: fullName,
+                    teacherId: teacherId
+                })
+            });
+
+            if (!studentRes.ok) {
+                result.innerHTML = `<div class="alert alert-error">Profile creation failed: ${studentRes.status}</div>`;
+                return;
+            }
+
+            result.innerHTML = '<div class="alert alert-success">✅ Student registered successfully!</div>';
+            form.reset();
+            setTimeout(() => location.reload(), 1500);
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadStudents();
+        setupCreateForm();
+    });
+    /*]]>*/
 </script>
 </body>
 </html>
