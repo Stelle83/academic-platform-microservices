@@ -63,8 +63,6 @@
     const role = /*[[${role}]]*/ '';
     const teacherId = /*[[${userId}]]*/ '';
 
-    console.log('studentsJson:', studentsJson);
-
     async function getToken() {
         const res = await fetch('/api/session/token');
         const data = await res.json();
@@ -77,7 +75,6 @@
 
         try {
             const students = JSON.parse(studentsJson || '[]');
-            console.log('Parsed students:', students);
 
             if (students.length === 0) {
                 list.innerHTML = '<p style="color:#777">No students found. Register your first student above!</p>';
@@ -132,62 +129,90 @@
             const password = document.getElementById('password').value;
             const fullName = document.getElementById('fullName').value;
 
+            result.innerHTML = '<div class="alert" style="background:#eaf4fb;' +
+                'color:#1a5276;border:1px solid #aed6f1">Registering account...</div>';
+
             // Step 1 — Register in Auth Service
-            result.innerHTML = '<div class="alert" style="background:#eaf4fb;color:#1a5276;border:1px solid #aed6f1">Registering account...</div>';
+            let studentUserId = null;
+            try {
+                const authRes = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username, email, password, role: 'STUDENT'
+                    })
+                });
 
-            //
+                const rawText = await authRes.text();
+                console.log('Auth response status:', authRes.status);
+                console.log('Auth response body:', rawText);
 
-            const authRes = await fetch('/api/auth/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    username: username,
-                    email: email,
-                    password: password,
-                    role: 'STUDENT'
-                })
-            });
+                if (!authRes.ok) {
+                    result.innerHTML = `<div class="alert alert-error">
+                        Registration failed: ${rawText}
+                    </div>`;
+                    return;
+                }
 
-            if (!authRes.ok) {
-                const err = await authRes.text();
-                result.innerHTML = `<div class="alert alert-error">Registration failed: ${authRes.status}</div>`;
+                const authData = JSON.parse(rawText);
+                studentUserId = authData.userId;
+                console.log('Got studentUserId:', studentUserId);
+
+            } catch (err) {
+                console.error('Auth register error:', err);
+                result.innerHTML =
+                    '<div class="alert alert-error">Auth error</div>';
                 return;
             }
 
-            const authData = await authRes.json();
-            console.log('FULL auth response:', JSON.stringify(authData));
-            console.log('studentUserId:', authData.userId);
-            const studentUserId = authData.userId;
-
-            // Step 2 — Create student profile in Student Service
-            result.innerHTML = '<div class="alert" style="background:#eaf4fb;color:#1a5276;border:1px solid #aed6f1">Creating student profile...</div>';
-
-            const studentRes = await fetch('/api/students', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + token,
-                    'X-Student-Id': studentUserId  // ← pass student's ID separately!
-                },
-                body: JSON.stringify({
-                    id: studentUserId,
-                    username: username,
-                    email: email,
-                    fullName: fullName,
-                    teacherId: teacherId
-                })
-            });
-
-            if (!studentRes.ok) {
-                result.innerHTML = `<div class="alert alert-error">Profile creation failed: ${studentRes.status}</div>`;
+            if (!studentUserId) {
+                result.innerHTML = '<div class="alert alert-error">' +
+                    'Could not get student ID!</div>';
                 return;
             }
 
-            result.innerHTML = '<div class="alert alert-success">✅ Student registered successfully!</div>';
-            form.reset();
-            setTimeout(() => location.reload(), 1500);
-        });
-    }
+            // Step 2 — Create student profile
+            result.innerHTML = '<div class="alert" style="background:#eaf4fb;' +
+                'color:#1a5276;border:1px solid #aed6f1">Creating profile...</div>';
+
+            try {
+                const studentRes = await fetch('/api/students', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({
+                        id: studentUserId,
+                        username,
+                        email,
+                        fullName,
+                        teacherId
+                    })
+                });
+
+                if (!studentRes.ok) {
+                    const err = await studentRes.text();
+                    result.innerHTML = `<div class="alert alert-error">
+                        Profile creation failed: ${studentRes.status}
+                    </div>`;
+                    console.error('Student create error:', err);
+                    return;
+                }
+
+                result.innerHTML =
+                    '<div class="alert alert-success">✅ Student registered!</div>';
+                form.reset();
+                setTimeout(() => location.reload(), 1500);
+
+            } catch (err) {
+                console.error('Student create error:', err);
+                result.innerHTML =
+                    '<div class="alert alert-error">Network error</div>';
+            }
+        }); // ← closes form.addEventListener
+
+    } // ← closes setupCreateForm function
 
     document.addEventListener('DOMContentLoaded', () => {
         loadStudents();
@@ -195,5 +220,6 @@
     });
     /*]]>*/
 </script>
+
 </body>
 </html>

@@ -1,13 +1,14 @@
 package com.academic.bff.config;
 
 import com.academic.bff.proxy.BffProxy;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 @Controller
 @RequiredArgsConstructor
@@ -15,6 +16,8 @@ import org.springframework.web.bind.annotation.*;
 public class WebController {
 
     private final BffProxy bffProxy;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
 
     @GetMapping("/")
     public String root() {
@@ -37,19 +40,26 @@ public class WebController {
                     "{\"username\":\"%s\",\"password\":\"%s\"}",
                     username, password);
 
-            var response = bffProxy.forwardToAuth("POST", "/api/auth/login", body);
+            var response = bffProxy.forwardToAuth(
+                    "POST", "/api/auth/login", body);
 
             if (response.getStatusCode().is2xxSuccessful()) {
-                String responseBody = response.getBody();
-                // Extract token and userId from JSON response
-                String token = extractField(responseBody, "token");
-                String userId = extractField(responseBody, "userId");
-                String role = extractField(responseBody, "role");
+                JsonNode json = objectMapper.readTree(response.getBody());
+
+                String token = json.get("token").asText();
+                String userId = json.get("userId").asText();
+                String role = json.get("role").asText();
 
                 session.setAttribute("token", token);
                 session.setAttribute("userId", userId);
                 session.setAttribute("role", role);
                 session.setAttribute("username", username);
+
+                // ← ADD HERE
+                log.info("Session set — userId: {}, role: {}, token: {}",
+                        userId,
+                        role,
+                        token != null ? "SET" : "NULL");
 
                 return "redirect:/dashboard";
             } else {
