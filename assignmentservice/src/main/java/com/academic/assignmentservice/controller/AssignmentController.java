@@ -22,6 +22,20 @@ public class AssignmentController {
         return ResponseEntity.ok(assignmentService.createAssignment(teacherId, request));
     }
 
+    @PostMapping("/all")
+    public ResponseEntity<List<AssignmentResponse>> createForAll(
+            @RequestHeader("X-User-Id") String teacherId,
+            @Valid @RequestBody AssignmentRequest request) {
+        try {
+            return ResponseEntity.ok(
+                    assignmentService.createAssignmentForAll(
+                            teacherId, request, request.getStudentIds()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                    .body(null);
+        }
+    }
+
     @PutMapping("/{assignmentId}/grade")
     public ResponseEntity<AssignmentResponse> gradeAssignment(
             @PathVariable String assignmentId,

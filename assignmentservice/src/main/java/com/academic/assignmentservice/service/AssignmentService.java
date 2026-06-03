@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -50,6 +51,43 @@ public class AssignmentService {
         }
 
         return mapToResponse(assignment);
+    }
+
+    public List<AssignmentResponse> createAssignmentForAll(
+            String teacherId, AssignmentRequest request, List<String> studentIds) {
+
+        List<AssignmentResponse> responses = new ArrayList<>();
+
+        for (String studentId : studentIds) {
+            Assignment assignment = Assignment.builder()
+                    .title(request.getTitle())
+                    .description(request.getDescription())
+                    .teacherId(teacherId)
+                    .studentId(studentId)
+                    .deadline(request.getDeadline())
+                    .status(Assignment.AssignmentStatus.ACTIVE)
+                    .build();
+
+            assignmentRepository.save(assignment);
+
+            if (request.isSendReminder()) {
+                rabbitTemplate.convertAndSend(
+                        RabbitMQConfig.ASSIGNMENT_EXCHANGE,
+                        RabbitMQConfig.ASSIGNMENT_CREATED_KEY,
+                        Map.of(
+                                "assignmentId", assignment.getId(),
+                                "title", assignment.getTitle(),
+                                "studentId", studentId,
+                                "teacherId", teacherId,
+                                "deadline", assignment.getDeadline().toString()
+                        )
+                );
+            }
+            responses.add(mapToResponse(assignment));
+        }
+
+        log.info("Assignment created for {} students", studentIds.size());
+        return responses;
     }
 
     public AssignmentResponse gradeAssignment(String assignmentId, GradeRequest request) {

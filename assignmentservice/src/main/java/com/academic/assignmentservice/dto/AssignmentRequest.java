@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 public class AssignmentRequest {
@@ -14,8 +15,9 @@ public class AssignmentRequest {
 
     private String description;
 
-    @NotBlank(message = "Student ID is required")
     private String studentId;
+
+    private List<String> studentIds;
 
     @NotNull(message = "Deadline is required")
     @Future(message = "Deadline must be in the future")
