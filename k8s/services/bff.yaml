@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: bff
-          image: academic-platform-bff:latest
+          image: academic-platform-bff:v2
           imagePullPolicy: Never
           ports:
             - containerPort: 8080
