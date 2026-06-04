@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: studentservice
-          image: academic-platform-studentservice:latest
+          image: academic-platform-studentservice:v2
           imagePullPolicy: Never
           ports:
             - containerPort: 8082

@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: authservice
-          image: academic-platform-authservice:latest
+          image: academic-platform-authservice:v2
           imagePullPolicy: Never
           ports:
             - containerPort: 8081
