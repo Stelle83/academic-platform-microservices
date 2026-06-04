@@ -13,6 +13,22 @@ public class RabbitMQConfig {
     public static final String ASSIGNMENT_GRADED_QUEUE = "assignment-graded";
     public static final String ATTENDANCE_WARNING_QUEUE = "attendance-warning";
 
+    // Declare queues so they exist even if other services haven't started yet
+    @Bean
+    public Queue assignmentCreatedQueue() {
+        return new Queue(ASSIGNMENT_CREATED_QUEUE, true);
+    }
+
+    @Bean
+    public Queue assignmentGradedQueue() {
+        return new Queue(ASSIGNMENT_GRADED_QUEUE, true);
+    }
+
+    @Bean
+    public Queue attendanceWarningQueue() {
+        return new Queue(ATTENDANCE_WARNING_QUEUE, true);
+    }
+
     @Bean
     public SimpleMessageConverter messageConverter() {
         SimpleMessageConverter converter = new SimpleMessageConverter();
